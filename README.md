@@ -26,3 +26,6 @@ Every 10 swipes the app calls `meals_refine()`, which recomputes `meals_taste`: 
 
 ## Share previews
 `tools/og/render.js` renders 1200x630 preview images (og/<id>.jpg, og/site.jpg) with headless Chromium and writes a share page per recipe at s/<id>/index.html with Open Graph tags. Re-run it after a harvest to cover new recipes, then publish with `python3 tools/publish.py`. Recipes without a page share as /?r=<id> (generic site preview).
+
+## Profile links
+Every profile has a random `share_code` (3 letters + 4 digits). `forkslist.com/<code>` opens that person's keeps with a Follow button (here.now SPA mode serves index.html for unknown paths; assets use absolute paths). Profiles are unlisted: never shown in discovery, but anyone with the link can see and follow. Recipe shares carry `?by=<code>`. Handles only resolve for public/featured lists (Kelly), so first names can't be guessed.

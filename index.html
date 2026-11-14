@@ -24,7 +24,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=30" />
+<link rel="stylesheet" href="/styles.css?v=32" />
 </head>
 <body class="home">
 <div class="app">
@@ -88,7 +88,7 @@
     </section>
   </main>
 
-  <footer class="foot">Made with <span id="footHeart"></span> for Kelly <span class="dot-sep">·</span> <a href="privacy.html">Privacy</a></footer>
+  <footer class="foot">Made with <span id="footHeart"></span> for Kelly <span class="dot-sep">·</span> <a href="/privacy.html">Privacy</a></footer>
 </div>
 
 <!-- 20-swipe check-in -->
@@ -117,7 +117,7 @@
     <p class="save-err" id="saveErr" role="alert" hidden></p>
     <button class="btn break-go" id="saveGo" type="submit"></button>
     <button class="break-stop" id="saveSkip" type="button"></button>
-    <p class="fine" id="saveFine">We'll never sell your data. <a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p>
+    <p class="fine" id="saveFine">We'll never sell your data. <a href="/privacy.html" target="_blank" rel="noopener">Privacy</a></p>
   </form>
 </div>
 
@@ -127,6 +127,10 @@
     <div class="break-icon" id="acctSheetIcon"></div>
     <h3 id="acctTitle">You're signed in</h3>
     <p id="acctText"></p>
+    <button class="share-link" id="acctShare" type="button">
+      <span class="sl-text"><b>Share your keeps</b><small id="acctShareUrl"></small></span>
+      <span class="sl-ic" id="acctShareIc"></span>
+    </button>
     <button class="btn break-go" id="acctDone">Done</button>
     <button class="break-stop" id="acctOut">Sign out</button>
     <button class="fine danger" id="acctDelete" type="button">Delete my account</button>
@@ -181,6 +185,6 @@
 
 <div class="toast" id="toast" role="status"></div>
 
-<script type="module" src="app.js?v=30"></script>
+<script type="module" src="/app.js?v=32"></script>
 </body>
 </html>

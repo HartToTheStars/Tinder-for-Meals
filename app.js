@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=30";
+import { icon } from "/icons.js?v=32";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -750,7 +750,22 @@ $("#acctBtn").addEventListener("click", () => {
   if (state.me?.name) $("#acctSheetIcon").innerHTML = avatar(state.me.name, "xl", state.me.color);
   $("#acctTitle").textContent = state.me?.name ? `Hi ${state.me.name}` : "You're signed in";
   $("#acctText").textContent = `${state.user.email}. Your keeps are saved to your account.`;
+  $("#acctShareIc").innerHTML = icon("share");
+  $("#acctShareUrl").textContent = state.me?.share_code ? `forkslist.com/${state.me.share_code}` : "Add your first name to get your link";
   openSheet("#acct");
+});
+// Share your keeps: an unlisted link anyone can open to see and follow your list.
+$("#acctShare").addEventListener("click", async () => {
+  if (!state.me?.share_code) {
+    if (state.user) ls.del(`forks:nameLater:${state.user.id}`);
+    return closeSheet("#acct", askName);
+  }
+  const url = `${location.origin}/${state.me.share_code}`;
+  try {
+    if (navigator.share) { await navigator.share({ title: `${state.me.name}'s keeps on forks.`, text: `${state.me.name}'s keeps on forks. Swipe right on dinner.`, url }); return; }
+  } catch (err) { if (err?.name === "AbortError") return; }
+  try { await navigator.clipboard.writeText(url); toast("Link copied"); }
+  catch { prompt("Copy this link", url); }
 });
 $("#acctDone").addEventListener("click", () => closeSheet("#acct"));
 // Delete account: tap once to arm, again to confirm.
@@ -834,7 +849,7 @@ async function loadSocial() {
     }
     const { data } = await db.from("meals_follows").select("followee");
     state.follows = new Set((data || []).map((d) => d.followee));
-    const { data: me } = await db.from("meals_profiles").select("handle,name,color").eq("user_id", state.user.id).maybeSingle();
+    const { data: me } = await db.from("meals_profiles").select("handle,name,color,share_code").eq("user_id", state.user.id).maybeSingle();
     state.me = me || null;
   } else {
     state.follows = new Set(ls.get(GUEST_FOLLOWS, []));
@@ -935,12 +950,12 @@ $("#peopleClose").addEventListener("click", () => closeSheet("#people"));
 // Recipes with a pre-rendered preview get a /s/<id>/ link (rich preview in iMessage, Slack, etc.).
 let ogIds = null;
 async function hasPreview(id) {
-  if (!ogIds) ogIds = fetch("og/index.json").then((r) => (r.ok ? r.json() : [])).then((a) => new Set(a)).catch(() => new Set());
+  if (!ogIds) ogIds = fetch("/og/index.json").then((r) => (r.ok ? r.json() : [])).then((a) => new Set(a)).catch(() => new Set());
   return (await ogIds).has(id);
 }
 async function shareRecipe(r) {
   if (!r) return;
-  const by = state.me ? `${encodeURIComponent(state.me.handle)}` : "";
+  const by = state.me?.share_code ? encodeURIComponent(state.me.share_code) : "";
   const url = (await hasPreview(r.id))
     ? `${location.origin}/s/${r.id}/${by ? `?by=${by}` : ""}`
     : `${location.origin}/?r=${r.id}${by ? `&by=${by}` : ""}`;
@@ -1021,6 +1036,9 @@ $("#nameForm").addEventListener("submit", async (e) => {
   $("#nameGo").classList.remove("is-busy");
   if (error) { $("#nameErr").textContent = "Couldn't save that. Try again?"; $("#nameErr").hidden = false; return; }
   state.me = data;
+  // Pick up the share code assigned to the new profile.
+  const { data: row } = await db.from("meals_profiles").select("handle,name,color,share_code").eq("user_id", state.user.id).maybeSingle();
+  if (row) state.me = row;
   updateAcct();
   closeSheet("#nameSheet", () => toast(`Hi ${data.name}`));
 });
@@ -1092,8 +1110,8 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   // Arriving from a magic link?
   const params = new URLSearchParams(location.search);
   const hash = params.get("login");
-  const shared = params.get("r"), sharedBy = params.get("by");
-  if (shared && !hash) history.replaceState(null, "", location.pathname);
+  const shared = params.get("r"), sharedBy = params.get("by"), sharedUser = params.get("u");
+  if ((shared || sharedUser) && !hash) history.replaceState(null, "", location.pathname);
   let merge = false;
   if (hash) {
     history.replaceState(null, "", location.pathname);
@@ -1105,6 +1123,12 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   await setUser(data.session?.user ?? null, { merge });
   if (state.user) setTimeout(askName, merge ? 1200 : 400);
   if (!state.user) { await loadSocial(); await loadKept(); refill(); }
+  // Arriving from a shared profile (/?u=handle)? Show their list with a Follow button.
+  // Profile links are forkslist.com/<code> (served by SPA routing); ?u= still works.
+  const pathCode = location.pathname.match(/^\/([a-z]{3}\d{4})\/?$/i)?.[1];
+  if (pathCode) history.replaceState(null, "", "/");
+  const profileKey = pathCode || sharedUser;
+  if (!shared && profileKey && /^[a-z0-9_]{2,24}$/i.test(profileKey)) openPeople(profileKey.toLowerCase());
   // Arriving from a shared recipe?
   if (shared && /^[0-9a-f-]{36}$/i.test(shared)) showLanding(shared, sharedBy && /^[a-z0-9_]{2,24}$/i.test(sharedBy) ? sharedBy.toLowerCase() : null);
   db.auth.onAuthStateChange((_evt, session) => {
