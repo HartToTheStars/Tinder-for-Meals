@@ -130,16 +130,16 @@ function maybeTeach(el) {
   const lean = (x, r) => `translate(${x}px, 0) rotate(${r}deg)`;
   const card = el.animate([
     { transform: lean(0, 0), offset: 0 },
-    { transform: lean(70, 6), offset: 0.22 },
-    { transform: lean(70, 6), offset: 0.38 },
-    { transform: lean(-70, -6), offset: 0.62 },
-    { transform: lean(-70, -6), offset: 0.78 },
+    { transform: lean(36, 3), offset: 0.22 },
+    { transform: lean(36, 3), offset: 0.38 },
+    { transform: lean(-36, -3), offset: 0.62 },
+    { transform: lean(-36, -3), offset: 0.78 },
     { transform: lean(0, 0), offset: 1 },
-  ], { duration: 2600, delay: 700, ...ease });
+  ], { duration: 1800, delay: 500, ...ease });
   const fade = (stamp, a, b, c, d) => stamp.animate([
     { opacity: 0, offset: 0 }, { opacity: 0, offset: a }, { opacity: 0.9, offset: b },
     { opacity: 0.9, offset: c }, { opacity: 0, offset: d }, { opacity: 0, offset: 1 },
-  ], { duration: 2600, delay: 700, fill: "forwards" });
+  ], { duration: 1800, delay: 500, fill: "forwards" });
   const anims = [card, fade(like, 0.05, 0.22, 0.38, 0.5), fade(nope, 0.5, 0.62, 0.78, 0.92)];
   const stop = () => anims.forEach((a) => a.cancel());
   card.finished.then(stop).catch(() => {});
