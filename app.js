@@ -9,10 +9,33 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 const $ = (s) => document.querySelector(s);
 const deckEl = $("#deck");
 const deckMsg = $("#deckMsg");
-const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0, cat: "", keptCat: "", round: [] };
+const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0, cat: "", keptCat: "", round: [], want: new Set(), keptWant: new Set() };
 const BREAK_EVERY = 20;
 const CATS = { "": ["🍽️", "recipes"], main: ["🍝", "mains"], appetizer: ["🥟", "apps"], dessert: ["🍰", "desserts"], drink: ["🍹", "drinks"] };
 const REFINE_EVERY = 10;
+const TAGS = [
+  ["kid", "🧒", "Kid friendly"], ["quick", "⏱️", "Under 30 min"], ["protein", "💪", "Protein-forward"],
+  ["vegetarian", "🥕", "Vegetarian"], ["vegan", "🌱", "Vegan"], ["gluten-free", "🌾", "Gluten-free"], ["dairy-free", "🥛", "Dairy-free"],
+];
+const TAG = Object.fromEntries(TAGS.map(([k, e, l]) => [k, { e, l }]));
+const tagEmojis = (r, max = 3) => (r.tags || []).filter((t) => TAG[t]).sort((a, b) =>
+  TAGS.findIndex((x) => x[0] === a) - TAGS.findIndex((x) => x[0] === b)).slice(0, max).map((t) => TAG[t].e);
+function renderTagRow(el, selected, onToggle) {
+  const tick = `<span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span>`;
+  el.innerHTML = TAGS.map(([k, e, l]) =>
+    `<button class="tag ${selected.has(k) ? "is-on" : ""}" data-tag="${k}" aria-pressed="${selected.has(k)}">${tick}<span class="ti">${e}</span>${l}</button>`).join("") +
+    (selected.size ? `<button class="tag clear" data-tag="__clear">Clear</button>` : "");
+  el.onclick = (e) => {
+    const b = e.target.closest(".tag");
+    if (!b) return;
+    if (b.dataset.tag === "__clear") selected.clear();
+    else selected.has(b.dataset.tag) ? selected.delete(b.dataset.tag) : selected.add(b.dataset.tag);
+    renderTagRow(el, selected, onToggle);
+    onToggle();
+  };
+}
+const loadSet = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k) || "[]").filter((t) => TAG[t])); } catch { return new Set(); } };
+const saveSet = (k, set) => { try { localStorage.setItem(k, JSON.stringify([...set])); } catch {} };
 
 // ---------- helpers ----------
 const esc = (s = "") => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -54,7 +77,7 @@ const preload = (src) => { const i = new Image(); i.referrerPolicy = "no-referre
 // ---------- deck ----------
 async function fetchDeck() {
   const exclude = new Set([...state.deck.map((r) => r.id), ...state.history.map((h) => h.recipe.id)]);
-  const { data, error } = await db.rpc("meals_deck", { n: 20, sources: null, cat: state.cat || null });
+  const { data, error } = await db.rpc("meals_deck", { n: 20, sources: null, cat: state.cat || null, want: [...state.want] });
   if (error) { console.error(error); return []; }
   return data.filter((r) => !exclude.has(r.id) && !JUNK.test(r.title)).map(clean);
 }
@@ -62,9 +85,9 @@ async function fetchDeck() {
 async function refill() {
   if (state.busy) return;
   state.busy = true;
-  const cat = state.cat;
+  const key = state.cat + "|" + [...state.want].sort();
   const more = await fetchDeck();
-  if (cat !== state.cat) { state.busy = false; return refill(); } // course changed mid-flight
+  if (key !== state.cat + "|" + [...state.want].sort()) { state.busy = false; return refill(); } // filters changed mid-flight
   state.dry = more.length === 0;
   state.deck.unshift(...more); // new cards go underneath
   more.slice(-4).forEach((r) => preload(r.image));
@@ -78,7 +101,7 @@ function cardHTML(r) {
     <div class="stamp stamp-like"><span>KEEP</span></div>
     <div class="stamp stamp-nope"><span>NOPE</span></div>
     <div class="card-body">
-      <span class="source">${esc(r.source)}</span>
+      <span class="source">${esc(r.source)}</span>${tagEmojis(r).length ? `<span class="card-tags">${tagEmojis(r).map((e) => `<span>${e}</span>`).join("")}</span>` : ""}
       <h2>${esc(r.title)}</h2>
       ${r.description ? `<p>${esc(r.description)}</p>` : ""}
     </div>`;
@@ -115,12 +138,15 @@ function render() {
   if (!state.deck.length) {
     deckMsg.innerHTML = state.busy
       ? `<div class="spinner"></div><p>Setting the table…</p>`
+      : state.want.size
+        ? `<div class="big">${[...state.want].map((t) => TAG[t].e).join("")}</div><h3>Nothing left that fits</h3><p>You've swiped every ${[...state.want].map((t) => TAG[t].l.toLowerCase()).join(" + ")} ${CATS[state.cat][1]} we have.</p><div class="row"><button class="btn" id="btnClearTags">Clear filters</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
       : state.cat
         ? `<div class="big">${CATS[state.cat][0]}</div><h3>That's every one of the ${CATS[state.cat][1]}</h3><p>Swipe through everything else, or check the kitchens for more.</p><div class="row"><button class="btn" id="btnAll">Show everything</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
         : `<div class="big">🧑‍🍳</div><h3>You've seen it all</h3><p>Want me to check the kitchens for new recipes?</p><button class="btn" id="btnHarvest">Find fresh recipes</button>`;
     deckMsg.hidden = false;
     $("#btnHarvest")?.addEventListener("click", harvest);
     $("#btnAll")?.addEventListener("click", () => setCat(""));
+    $("#btnClearTags")?.addEventListener("click", () => { state.want.clear(); onWantChange(); });
   } else deckMsg.hidden = true;
 
   if (state.deck.length < 5 && !state.dry && !state.busy) refill();
@@ -139,12 +165,21 @@ function setCat(cat) {
     b.setAttribute("aria-checked", on);
   });
   try { localStorage.setItem("forks:cat", cat); } catch {}
+  reshuffle();
+}
+function reshuffle() {
   deckEl.querySelectorAll(".card").forEach((c) => { c._stopTeach?.(); c.classList.add("toss"); setTimeout(() => c.remove(), 220); });
   state.deck = [];
   state.dry = false;
   dealt = true;
   deckMsg.hidden = true;
-  setTimeout(refill, 120);
+  clearTimeout(reshuffle.t);
+  reshuffle.t = setTimeout(refill, 150);
+}
+function onWantChange() {
+  saveSet("forks:want", state.want);
+  renderTagRow($("#tags"), state.want, onWantChange);
+  reshuffle();
 }
 document.querySelectorAll("#cats .cat").forEach((b) => b.addEventListener("click", () => setCat(b.dataset.cat)));
 
@@ -277,6 +312,10 @@ async function harvest() {
     });
     const json = await res.json();
     toast(json.added ? `${json.added} fresh recipes` : "Nothing new yet. Check back tomorrow.");
+    // Tag the new arrivals (ingredients, cook time) so diet filters work on them. Two batches covers a harvest.
+    if (json.added) for (let i = 0; i < 2; i++) await fetch(`${SUPABASE_URL}/functions/v1/meals-enrich`, {
+      method: "POST", headers: { Authorization: `Bearer ${SUPABASE_ANON}`, apikey: SUPABASE_ANON },
+    }).catch(() => {});
   } catch { toast("The kitchens didn't answer"); }
   state.dry = false;
   await refill();
@@ -323,7 +362,7 @@ function renderKept() {
     b.setAttribute("aria-checked", on);
     b.querySelector(".cat-n").textContent = b.dataset.cat && n ? n : "";
   });
-  const inCat = (r) => !state.keptCat || (r.category || "main") === state.keptCat;
+  const inCat = (r) => (!state.keptCat || (r.category || "main") === state.keptCat) && [...state.keptWant].every((t) => (r.tags || []).includes(t));
   const sources = ["All", ...new Set(state.kept.filter(inCat).map((r) => r.source))];
   if (!sources.includes(state.source)) state.source = "All";
   $("#chips").innerHTML = sources.length > 2
@@ -343,7 +382,7 @@ function renderKept() {
       <img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" />
       <a href="${esc(r.url)}" target="_blank" rel="noopener">
         <h4>${highlight(r.title, state.query.split(/\s+/).filter(Boolean))}</h4>
-        <small>${esc(r.source)}</small>
+        <small>${esc(r.source)}${tagEmojis(r, 4).length ? `<span class="mini">${tagEmojis(r, 4).join("")}</span>` : ""}</small>
       </a>
       <button class="rm" aria-label="Remove ${esc(r.title)}" title="Remove">
         <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -358,10 +397,14 @@ function renderKept() {
     ? "Nothing kept yet. Go swipe right on something delicious."
     : state.query
       ? "No keepers match that. Try another word."
-      : `No ${label} kept yet. Go find some!`;
+      : state.keptWant.size
+        ? `No ${[...state.keptWant].map((t) => TAG[t].l.toLowerCase()).join(" + ")} ${label} kept yet.`
+        : `No ${label} kept yet. Go find some!`;
   const go = $("#emptyGo");
   go.hidden = !!(state.kept.length && state.query);
-  go.textContent = state.keptCat && state.kept.length ? `Swipe ${label} ${emoji}` : "Start swiping";
+  go.textContent = state.kept.length && (state.keptCat || state.keptWant.size)
+    ? `Swipe ${[...state.keptWant].map((t) => TAG[t].e).join("")}${state.keptCat ? " " + label + " " + emoji : " these"}`.replace("Swipe  ", "Swipe ")
+    : "Start swiping";
 }
 
 $("#list").addEventListener("click", async (e) => {
@@ -379,7 +422,12 @@ $("#list").addEventListener("click", async (e) => {
   toast(error ? "Couldn't remove that" : "Removed");
 });
 $("#emptyGo").addEventListener("click", () => {
-  if (state.keptCat && state.kept.length) setCat(state.keptCat);
+  if (state.kept.length && state.keptWant.size) {
+    state.want = new Set(state.keptWant);
+    saveSet("forks:want", state.want);
+    renderTagRow($("#tags"), state.want, onWantChange);
+  }
+  if (state.kept.length && state.keptCat !== state.cat) setCat(state.keptCat); else if (state.keptWant.size) reshuffle();
   show("swipe");
 });
 $("#keptCats").addEventListener("click", (e) => {
@@ -476,5 +524,9 @@ document.addEventListener("keydown", (e) => {
 // ---------- boot ----------
 try { const v = localStorage.getItem("forks:view"); if (v) show(v); } catch {}
 try { const c = localStorage.getItem("forks:cat"); if (c && c in CATS) { state.cat = c; document.querySelectorAll("#cats .cat").forEach((b) => { const on = b.dataset.cat === c; b.classList.toggle("is-active", on); b.setAttribute("aria-checked", on); }); } } catch {}
+state.want = loadSet("forks:want");
+state.keptWant = loadSet("forks:keptWant");
+renderTagRow($("#tags"), state.want, onWantChange);
+renderTagRow($("#keptTags"), state.keptWant, () => { saveSet("forks:keptWant", state.keptWant); renderKept(); });
 loadKept();
 refineTaste(false);

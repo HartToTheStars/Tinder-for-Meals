@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=9" />
+<link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
 <div class="app">
@@ -32,6 +32,7 @@
         <button class="cat" data-cat="dessert" role="radio" aria-checked="false"><span class="cat-emoji">🍰</span>Desserts</button>
         <button class="cat" data-cat="drink" role="radio" aria-checked="false"><span class="cat-emoji">🍹</span>Drinks</button>
       </div>
+      <div class="tags" id="tags" role="group" aria-label="Dietary and lifestyle filters"></div>
       <div class="deck" id="deck" aria-live="polite">
         <div class="deck-msg" id="deckMsg">
           <div class="spinner"></div>
@@ -64,6 +65,7 @@
         <button class="cat" data-cat="dessert" role="radio" aria-checked="false"><span class="cat-emoji">🍰</span>Desserts<b class="cat-n"></b></button>
         <button class="cat" data-cat="drink" role="radio" aria-checked="false"><span class="cat-emoji">🍹</span>Drinks<b class="cat-n"></b></button>
       </div>
+      <div class="tags" id="keptTags" role="group" aria-label="Filter keepers by diet and lifestyle"></div>
       <div class="search">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input id="search" type="search" placeholder="Search your keepers…" autocomplete="off" />
@@ -92,6 +94,6 @@
 
 <div class="toast" id="toast" role="status"></div>
 
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=11"></script>
 </body>
 </html>

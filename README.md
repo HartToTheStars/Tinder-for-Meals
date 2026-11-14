@@ -13,3 +13,6 @@ Every 10 swipes the app calls `meals_refine()`, which recomputes `meals_taste`: 
 
 ## Courses
 `meals_recipes.category` is a generated column from `meals_category()` (keyword rules on the title): `main`, `appetizer`, `dessert`, `drink`. The swipe view filters with `meals_deck(n, sources, cat)`; the choice is remembered per device.
+
+## Diet & lifestyle filters
+`meals-enrich` reads each recipe page's ingredient list and cook time (schema.org JSON-LD, or microdata on Smitten Kitchen). `meals_tags()` turns that into a generated `tags` column: `kid`, `quick` (≤30 min), `protein`, `vegetarian`, `vegan`, `gluten-free`, `dairy-free`. Diet tags are only assigned from real ingredient lists or the site's own labels. Half Baked Harvest and The Kitchn block page fetches, so they only get title-based tags (kid, protein). These are best guesses; don't rely on them for allergies or celiac.
