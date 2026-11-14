@@ -9,7 +9,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 const $ = (s) => document.querySelector(s);
 const deckEl = $("#deck");
 const deckMsg = $("#deckMsg");
-const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0, cat: "", round: [] };
+const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0, cat: "", keptCat: "", round: [] };
 const BREAK_EVERY = 20;
 const CATS = { "": ["🍽️", "recipes"], main: ["🍝", "mains"], appetizer: ["🥟", "apps"], dessert: ["🍰", "desserts"], drink: ["🍹", "drinks"] };
 const REFINE_EVERY = 10;
@@ -133,7 +133,7 @@ let dealt = false;
 function setCat(cat) {
   if (cat === state.cat) return;
   state.cat = cat;
-  document.querySelectorAll(".cat").forEach((b) => {
+  document.querySelectorAll("#cats .cat").forEach((b) => {
     const on = b.dataset.cat === cat;
     b.classList.toggle("is-active", on);
     b.setAttribute("aria-checked", on);
@@ -146,7 +146,7 @@ function setCat(cat) {
   deckMsg.hidden = true;
   setTimeout(refill, 120);
 }
-document.querySelectorAll(".cat").forEach((b) => b.addEventListener("click", () => setCat(b.dataset.cat)));
+document.querySelectorAll("#cats .cat").forEach((b) => b.addEventListener("click", () => setCat(b.dataset.cat)));
 
 // One-time intro: lean right (KEEP), then left (NOPE), then settle.
 let taught = false;
@@ -313,14 +313,26 @@ function highlight(text, terms) {
 }
 
 function renderKept() {
-  const sources = ["All", ...new Set(state.kept.map((r) => r.source))];
+  // Course chips with counts; sources narrow to what's in the chosen course.
+  const counts = { "": state.kept.length };
+  state.kept.forEach((r) => { counts[r.category || "main"] = (counts[r.category || "main"] || 0) + 1; });
+  document.querySelectorAll("#keptCats .cat").forEach((b) => {
+    const n = counts[b.dataset.cat] || 0, on = b.dataset.cat === state.keptCat;
+    b.classList.toggle("is-active", on);
+    b.classList.toggle("is-empty", !n && !on);
+    b.setAttribute("aria-checked", on);
+    b.querySelector(".cat-n").textContent = b.dataset.cat && n ? n : "";
+  });
+  const inCat = (r) => !state.keptCat || (r.category || "main") === state.keptCat;
+  const sources = ["All", ...new Set(state.kept.filter(inCat).map((r) => r.source))];
   if (!sources.includes(state.source)) state.source = "All";
-  $("#chips").innerHTML = state.kept.length > 1
+  $("#chips").innerHTML = sources.length > 2
     ? sources.map((s) => `<button class="chip ${s === state.source ? "is-active" : ""}" data-source="${esc(s)}">${esc(s)}</button>`).join("")
     : "";
 
   const terms = norm(state.query).split(/\s+/).filter(Boolean);
   const rows = state.kept.filter((r) => {
+    if (!inCat(r)) return false;
     if (state.source !== "All" && r.source !== state.source) return false;
     const hay = norm(`${r.title} ${r.source} ${r.description || ""}`);
     return terms.every((t) => hay.includes(t));
@@ -340,9 +352,16 @@ function renderKept() {
 
   const empty = $("#keptEmpty");
   empty.hidden = rows.length > 0;
-  empty.querySelector("p").textContent = state.kept.length
-    ? "No keepers match that. Try another word."
-    : "Nothing kept yet. Go swipe right on something delicious.";
+  const [emoji, label] = CATS[state.keptCat];
+  empty.querySelector(".empty-emoji").textContent = state.kept.length ? emoji : "🍽️";
+  empty.querySelector("p").textContent = !state.kept.length
+    ? "Nothing kept yet. Go swipe right on something delicious."
+    : state.query
+      ? "No keepers match that. Try another word."
+      : `No ${label} kept yet. Go find some!`;
+  const go = $("#emptyGo");
+  go.hidden = !!(state.kept.length && state.query);
+  go.textContent = state.keptCat && state.kept.length ? `Swipe ${label} ${emoji}` : "Start swiping";
 }
 
 $("#list").addEventListener("click", async (e) => {
@@ -359,6 +378,19 @@ $("#list").addEventListener("click", async (e) => {
   const { error } = await db.from("meals_swipes").update({ liked: false }).eq("recipe_id", id);
   toast(error ? "Couldn't remove that" : "Removed");
 });
+$("#emptyGo").addEventListener("click", () => {
+  if (state.keptCat && state.kept.length) setCat(state.keptCat);
+  show("swipe");
+});
+$("#keptCats").addEventListener("click", (e) => {
+  const b = e.target.closest(".cat");
+  if (!b || b.dataset.cat === state.keptCat) return;
+  state.keptCat = b.dataset.cat;
+  state.source = "All";
+  try { localStorage.setItem("forks:keptCat", state.keptCat); } catch {}
+  renderKept();
+});
+try { const c = localStorage.getItem("forks:keptCat"); if (c && c in CATS) state.keptCat = c; } catch {}
 $("#chips").addEventListener("click", (e) => {
   const c = e.target.closest(".chip");
   if (!c) return;
@@ -443,6 +475,6 @@ document.addEventListener("keydown", (e) => {
 
 // ---------- boot ----------
 try { const v = localStorage.getItem("forks:view"); if (v) show(v); } catch {}
-try { const c = localStorage.getItem("forks:cat"); if (c && c in CATS) { state.cat = c; document.querySelectorAll(".cat").forEach((b) => { const on = b.dataset.cat === c; b.classList.toggle("is-active", on); b.setAttribute("aria-checked", on); }); } } catch {}
+try { const c = localStorage.getItem("forks:cat"); if (c && c in CATS) { state.cat = c; document.querySelectorAll("#cats .cat").forEach((b) => { const on = b.dataset.cat === c; b.classList.toggle("is-active", on); b.setAttribute("aria-checked", on); }); } } catch {}
 loadKept();
 refineTaste(false);
