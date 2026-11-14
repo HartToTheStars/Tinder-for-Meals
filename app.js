@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=26";
+import { icon } from "./icons.js?v=27";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -994,13 +994,18 @@ function askName() {
   $("#nameErr").hidden = true;
   $("#nameInput").value = "";
   pickedColor = BRAND[Math.floor(Math.random() * BRAND.length)]; // random brand color, kept on save
+  previewKey = null;
   previewName();
   openSheet("#nameSheet");
   setTimeout(() => $("#nameInput").focus(), 300);
 }
-let pickedColor = null;
+let pickedColor = null, previewKey = null;
+// Only redraw (and pop) when the initial changes, not on every keystroke.
 function previewName() {
   const v = $("#nameInput").value.trim();
+  const key = v ? v.charAt(0).toUpperCase() : "";
+  if (key === previewKey) return;
+  previewKey = key;
   $("#namePreview").innerHTML = v ? avatar(v, "xl", pickedColor) : `<span class="avatar xl blank">${icon("circle-user-round")}</span>`;
 }
 $("#nameInput").addEventListener("input", previewName);
