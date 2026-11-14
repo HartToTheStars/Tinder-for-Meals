@@ -6,32 +6,29 @@
 <title>Forks</title>
 <meta name="description" content="Swipe right on dinner." />
 <meta name="theme-color" content="#f7f1e8" />
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍴</text></svg>" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e8553e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2'/%3E%3Cpath d='M7 2v20'/%3E%3Cpath d='M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=11" />
+<link rel="stylesheet" href="styles.css?v=12" />
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <h1 class="logo">forks<span>.</span></h1>
-    <nav class="tabs" role="tablist">
-      <button class="tab is-active" data-view="swipe" role="tab" aria-selected="true">Swipe</button>
-      <button class="tab" data-view="kept" role="tab" aria-selected="false">Kept <span class="count" id="keptCount">0</span></button>
-    </nav>
+    <h1 class="logo"><button id="logoBtn" aria-label="forks, back to swiping">forks<span>.</span></button></h1>
+    <div class="top-right">
+      <nav class="tabs" role="tablist">
+        <button class="tab is-active" data-view="swipe" role="tab" aria-selected="true">Swipe</button>
+        <button class="tab" data-view="kept" role="tab" aria-selected="false">Kept <span class="count" id="keptCount">0</span></button>
+      </nav>
+      <button class="acct-btn" id="acctBtn" aria-label="Account"><span id="acctIcon"></span><i class="acct-dot" id="acctDot" hidden></i></button>
+    </div>
   </header>
 
   <main>
     <!-- SWIPE -->
     <section class="view view-swipe is-active" id="view-swipe">
-      <div class="cats" id="cats" role="radiogroup" aria-label="Filter by course">
-        <button class="cat is-active" data-cat="" role="radio" aria-checked="true"><span class="cat-emoji">🍽️</span>All</button>
-        <button class="cat" data-cat="main" role="radio" aria-checked="false"><span class="cat-emoji">🍝</span>Mains</button>
-        <button class="cat" data-cat="appetizer" role="radio" aria-checked="false"><span class="cat-emoji">🥟</span>Apps</button>
-        <button class="cat" data-cat="dessert" role="radio" aria-checked="false"><span class="cat-emoji">🍰</span>Desserts</button>
-        <button class="cat" data-cat="drink" role="radio" aria-checked="false"><span class="cat-emoji">🍹</span>Drinks</button>
-      </div>
+      <div class="cats" id="cats" role="radiogroup" aria-label="Filter by course"></div>
       <div class="tags" id="tags" role="group" aria-label="Dietary and lifestyle filters"></div>
       <div class="deck" id="deck" aria-live="polite">
         <div class="deck-msg" id="deckMsg">
@@ -40,50 +37,39 @@
         </div>
       </div>
       <div class="actions">
-        <button class="act act-undo" id="btnUndo" aria-label="Undo" title="Undo (⌫)" disabled>
-          <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
-        </button>
-        <button class="act act-nope" id="btnNope" aria-label="Pass" title="Pass (←)">
-          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
-        <button class="act act-like" id="btnLike" aria-label="Keep" title="Keep (→)">
-          <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.7 4.5c2.1 0 3.6 1.1 5.3 3 1.7-1.9 3.2-3 5.3-3 3.7 0 5.8 3.7 4.3 7.2C19.5 16.4 12 21 12 21Z"/></svg>
-        </button>
-        <a class="act act-open" id="btnOpen" aria-label="Open recipe" title="Open recipe (↑)" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></svg>
-        </a>
+        <button class="act act-undo" id="btnUndo" aria-label="Undo" title="Undo (⌫)" disabled></button>
+        <button class="act act-nope" id="btnNope" aria-label="Pass" title="Pass (←)"></button>
+        <button class="act act-like" id="btnLike" aria-label="Keep" title="Keep (→)"></button>
+        <a class="act act-open" id="btnOpen" aria-label="Open recipe" title="Open recipe (↑)" target="_blank" rel="noopener"></a>
       </div>
       <p class="hint">Drag, or use ← → keys</p>
     </section>
 
     <!-- KEPT -->
     <section class="view view-kept" id="view-kept">
-      <div class="cats" id="keptCats" role="radiogroup" aria-label="Filter keepers by course">
-        <button class="cat is-active" data-cat="" role="radio" aria-checked="true"><span class="cat-emoji">🍽️</span>All<b class="cat-n"></b></button>
-        <button class="cat" data-cat="main" role="radio" aria-checked="false"><span class="cat-emoji">🍝</span>Mains<b class="cat-n"></b></button>
-        <button class="cat" data-cat="appetizer" role="radio" aria-checked="false"><span class="cat-emoji">🥟</span>Apps<b class="cat-n"></b></button>
-        <button class="cat" data-cat="dessert" role="radio" aria-checked="false"><span class="cat-emoji">🍰</span>Desserts<b class="cat-n"></b></button>
-        <button class="cat" data-cat="drink" role="radio" aria-checked="false"><span class="cat-emoji">🍹</span>Drinks<b class="cat-n"></b></button>
-      </div>
+      <div class="cats" id="keptCats" role="radiogroup" aria-label="Filter keepers by course"></div>
       <div class="tags" id="keptTags" role="group" aria-label="Filter keepers by diet and lifestyle"></div>
       <div class="search">
-        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span id="searchIcon"></span>
         <input id="search" type="search" placeholder="Search your keepers…" autocomplete="off" />
       </div>
       <div class="chips" id="chips"></div>
       <ul class="list" id="list"></ul>
       <div class="empty" id="keptEmpty" hidden>
-        <div class="empty-emoji">🍽️</div>
+        <div class="empty-ic" id="emptyIcon"></div>
         <p>Nothing kept yet. Go swipe right on something delicious.</p>
         <button class="btn empty-go" id="emptyGo">Start swiping</button>
       </div>
     </section>
   </main>
+
+  <footer class="foot">Made with <span id="footHeart"></span> for Kelly</footer>
 </div>
 
+<!-- 20-swipe check-in -->
 <div class="break" id="break" hidden>
   <div class="break-sheet" role="dialog" aria-modal="true" aria-labelledby="breakTitle">
-    <div class="break-emoji" id="breakEmoji">🍽️</div>
+    <div class="break-icon" id="breakIcon"></div>
     <h3 id="breakTitle"></h3>
     <p id="breakText"></p>
     <div class="break-thumbs" id="breakThumbs"></div>
@@ -92,8 +78,36 @@
   </div>
 </div>
 
+<!-- Save your keeps / sign in -->
+<div class="break" id="save" hidden>
+  <form class="break-sheet" id="saveForm" role="dialog" aria-modal="true" aria-labelledby="saveTitle" novalidate>
+    <div class="break-icon" id="saveIcon"></div>
+    <h3 id="saveTitle"></h3>
+    <p id="saveText"></p>
+    <div class="save-thumbs break-thumbs" id="saveThumbs"></div>
+    <label class="save-field" id="saveField">
+      <span class="sr">Email</span>
+      <input id="saveEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" />
+    </label>
+    <p class="save-err" id="saveErr" role="alert" hidden></p>
+    <button class="btn break-go" id="saveGo" type="submit"></button>
+    <button class="break-stop" id="saveSkip" type="button"></button>
+  </form>
+</div>
+
+<!-- Signed-in account -->
+<div class="break" id="acct" hidden>
+  <div class="break-sheet" role="dialog" aria-modal="true" aria-labelledby="acctTitle">
+    <div class="break-icon" id="acctSheetIcon"></div>
+    <h3 id="acctTitle">You're signed in</h3>
+    <p id="acctText"></p>
+    <button class="btn break-go" id="acctDone">Done</button>
+    <button class="break-stop" id="acctOut">Sign out</button>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status"></div>
 
-<script type="module" src="app.js?v=11"></script>
+<script type="module" src="app.js?v=12"></script>
 </body>
 </html>

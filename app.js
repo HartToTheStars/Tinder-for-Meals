@@ -1,58 +1,53 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
+import { icon } from "./icons.js?v=12";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
 const SUPABASE_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtd3N5bG9mZ2ZvY21icXZtZ2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMDg1NTMsImV4cCI6MjEwMDU4NDU1M30.Jxsz_HK6jE4y2T36RJMtRWpaXlk0ugyEL2b7CXTrgE8";
-const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+const db = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, detectSessionInUrl: false } });
 
 const $ = (s) => document.querySelector(s);
 const deckEl = $("#deck");
 const deckMsg = $("#deckMsg");
-const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0, cat: "", keptCat: "", round: [], want: new Set(), keptWant: new Set() };
+const state = {
+  deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0,
+  cat: "", keptCat: "", round: [], want: new Set(), keptWant: new Set(), user: null, ctaShown: false,
+};
 const BREAK_EVERY = 20;
-const CATS = { "": ["🍽️", "recipes"], main: ["🍝", "mains"], appetizer: ["🥟", "apps"], dessert: ["🍰", "desserts"], drink: ["🍹", "drinks"] };
 const REFINE_EVERY = 10;
+const CTA_AFTER = 3;
+const CATS = { "": ["utensils", "All", "recipes"], main: ["cooking-pot", "Mains", "mains"], appetizer: ["salad", "Apps", "apps"], dessert: ["cake-slice", "Desserts", "desserts"], drink: ["martini", "Drinks", "drinks"] };
 const TAGS = [
-  ["kid", "🧒", "Kid friendly"], ["quick", "⏱️", "Under 30 min"], ["protein", "💪", "Protein-forward"],
-  ["vegetarian", "🥕", "Vegetarian"], ["vegan", "🌱", "Vegan"], ["gluten-free", "🌾", "Gluten-free"], ["dairy-free", "🥛", "Dairy-free"],
+  ["kid", "baby", "Kid friendly"], ["quick", "timer", "Under 30 min"], ["protein", "drumstick", "Protein-forward"],
+  ["vegetarian", "carrot", "Vegetarian"], ["vegan", "sprout", "Vegan"], ["gluten-free", "wheat-off", "Gluten-free"], ["dairy-free", "milk-off", "Dairy-free"],
 ];
-const TAG = Object.fromEntries(TAGS.map(([k, e, l]) => [k, { e, l }]));
-const tagEmojis = (r, max = 3) => (r.tags || []).filter((t) => TAG[t]).sort((a, b) =>
-  TAGS.findIndex((x) => x[0] === a) - TAGS.findIndex((x) => x[0] === b)).slice(0, max).map((t) => TAG[t].e);
-function renderTagRow(el, selected, onToggle) {
-  const tick = `<span class="tick"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg></span>`;
-  el.innerHTML = TAGS.map(([k, e, l]) =>
-    `<button class="tag ${selected.has(k) ? "is-on" : ""}" data-tag="${k}" aria-pressed="${selected.has(k)}">${tick}<span class="ti">${e}</span>${l}</button>`).join("") +
-    (selected.size ? `<button class="tag clear" data-tag="__clear">Clear</button>` : "");
-  el.onclick = (e) => {
-    const b = e.target.closest(".tag");
-    if (!b) return;
-    if (b.dataset.tag === "__clear") selected.clear();
-    else selected.has(b.dataset.tag) ? selected.delete(b.dataset.tag) : selected.add(b.dataset.tag);
-    renderTagRow(el, selected, onToggle);
-    onToggle();
-  };
-}
-const loadSet = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k) || "[]").filter((t) => TAG[t])); } catch { return new Set(); } };
-const saveSet = (k, set) => { try { localStorage.setItem(k, JSON.stringify([...set])); } catch {} };
+const TAG = Object.fromEntries(TAGS.map(([k, i, l]) => [k, { i, l }]));
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 // ---------- helpers ----------
-const esc = (s = "") => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const esc = (s = "") => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const ls = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
 let toastTimer;
 function toast(msg) {
   const t = $("#toast");
   t.textContent = msg;
   t.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
 }
 function hearts(x, y) {
-  const set = ["❤️", "🧡", "💛", "🍝", "🥗", "🍋"];
+  const colors = ["#e8553e", "#3f9b6b", "#e9a23b", "#e8553e"];
   for (let i = 0; i < 9; i++) {
     const h = document.createElement("span");
     h.className = "heart";
-    h.textContent = set[i % set.length];
+    h.innerHTML = icon("heart");
+    h.style.color = colors[i % colors.length];
     h.style.left = x + (Math.random() * 60 - 30) + "px";
     h.style.top = y + (Math.random() * 30 - 15) + "px";
     h.style.setProperty("--dx", Math.random() * 140 - 70 + "px");
@@ -72,12 +67,103 @@ const clean = (r) => ({
   title: smartTitle(r.title.trim().replace(/\.$/, "")),
   image: r.image?.replace(/^http:\/\//, "https://").replace(/^(https:\/\/[^/]+)\/www\.[^/]+\//, "$1/"),
 });
+// Just what the UI needs, for storing guest keeps on the device.
+const slim = (r) => ({ id: r.id, url: r.url, title: r.title, description: r.description, image: r.image, source: r.source, category: r.category, tags: r.tags });
 const preload = (src) => { const i = new Image(); i.referrerPolicy = "no-referrer"; i.src = src; };
+const tagIcons = (r, max = 3) => (r.tags || []).filter((t) => TAG[t])
+  .sort((a, b) => TAGS.findIndex((x) => x[0] === a) - TAGS.findIndex((x) => x[0] === b)).slice(0, max);
+
+// ---------- storage: guests keep swipes on the device, signed-in users in Supabase ----------
+const GUEST = "forks:guest";
+let guest = ls.get(GUEST, null) || { swipes: {}, kept: [] }; // swipes: { recipeId: liked }
+const saveGuest = () => ls.set(GUEST, guest);
+const guestIds = () => {
+  if (state.user) return { p_liked: [], p_noped: [] };
+  const e = Object.entries(guest.swipes);
+  return { p_liked: e.filter(([, l]) => l).map(([id]) => id), p_noped: e.filter(([, l]) => !l).map(([id]) => id) };
+};
+
+const store = {
+  async swipe(recipe, liked) {
+    if (state.user) {
+      const { error } = await db.from("meals_swipes").upsert(
+        { user_id: state.user.id, recipe_id: recipe.id, liked, swiped_at: new Date().toISOString() },
+        { onConflict: "user_id,recipe_id" });
+      return error;
+    }
+    guest.swipes[recipe.id] = liked;
+    if (liked) guest.kept = [slim(recipe), ...guest.kept.filter((r) => r.id !== recipe.id)];
+    saveGuest();
+    return null;
+  },
+  async unswipe(id) {
+    if (state.user) return (await db.from("meals_swipes").delete().eq("recipe_id", id)).error;
+    delete guest.swipes[id];
+    guest.kept = guest.kept.filter((r) => r.id !== id);
+    saveGuest();
+    return null;
+  },
+  async unkeep(id) {
+    if (state.user) return (await db.from("meals_swipes").update({ liked: false }).eq("recipe_id", id)).error;
+    guest.swipes[id] = false;
+    guest.kept = guest.kept.filter((r) => r.id !== id);
+    saveGuest();
+    return null;
+  },
+  async kept() {
+    if (!state.user) return guest.kept.map(clean);
+    const { data, error } = await db.from("meals_swipes")
+      .select("swiped_at, recipe:meals_recipes(*)").eq("liked", true).order("swiped_at", { ascending: false });
+    if (error) { console.error(error); return state.kept; }
+    return data.filter((d) => d.recipe).map((d) => clean({ ...d.recipe, swiped_at: d.swiped_at }));
+  },
+};
+
+// After signing in: copy anything swiped as a guest into the account (existing opinions win), then forget it locally.
+async function mergeGuest() {
+  const entries = Object.entries(guest.swipes);
+  if (!state.user || !entries.length) return 0;
+  const rows = entries.map(([recipe_id, liked]) => ({ user_id: state.user.id, recipe_id, liked }));
+  const { error } = await db.from("meals_swipes").upsert(rows, { onConflict: "user_id,recipe_id", ignoreDuplicates: true });
+  if (error) { console.error(error); return 0; }
+  guest = { swipes: {}, kept: [] };
+  ls.del(GUEST);
+  return rows.filter((r) => r.liked).length;
+}
+
+// ---------- filter UI ----------
+function renderCats(el, active, withCounts) {
+  el.innerHTML = Object.entries(CATS).map(([k, [ic, label]]) =>
+    `<button class="cat ${k === active ? "is-active" : ""}" data-cat="${k}" role="radio" aria-checked="${k === active}">${icon(ic, "cat-ic")}${label}${withCounts ? `<b class="cat-n"></b>` : ""}</button>`).join("");
+}
+function markCat(el, active) {
+  el.querySelectorAll(".cat").forEach((b) => {
+    const on = b.dataset.cat === active;
+    b.classList.toggle("is-active", on);
+    b.setAttribute("aria-checked", on);
+  });
+}
+function renderTagRow(el, selected, onToggle) {
+  const tick = `<span class="tick">${icon("check")}</span>`;
+  el.innerHTML = TAGS.map(([k, ic, l]) =>
+    `<button class="tag ${selected.has(k) ? "is-on" : ""}" data-tag="${k}" aria-pressed="${selected.has(k)}">${tick}${icon(ic, "ti")}${l}</button>`).join("") +
+    (selected.size ? `<button class="tag clear" data-tag="__clear">Clear</button>` : "");
+  el.onclick = (e) => {
+    const b = e.target.closest(".tag");
+    if (!b) return;
+    if (b.dataset.tag === "__clear") selected.clear();
+    else selected.has(b.dataset.tag) ? selected.delete(b.dataset.tag) : selected.add(b.dataset.tag);
+    renderTagRow(el, selected, onToggle);
+    onToggle();
+  };
+}
+const loadSet = (k) => new Set((ls.get(k, []) || []).filter((t) => TAG[t]));
+const saveSet = (k, set) => ls.set(k, [...set]);
 
 // ---------- deck ----------
 async function fetchDeck() {
   const exclude = new Set([...state.deck.map((r) => r.id), ...state.history.map((h) => h.recipe.id)]);
-  const { data, error } = await db.rpc("meals_deck", { n: 20, sources: null, cat: state.cat || null, want: [...state.want] });
+  const { data, error } = await db.rpc("meals_deck", { n: 20, cat: state.cat || null, want: [...state.want], ...guestIds() });
   if (error) { console.error(error); return []; }
   return data.filter((r) => !exclude.has(r.id) && !JUNK.test(r.title)).map(clean);
 }
@@ -85,9 +171,10 @@ async function fetchDeck() {
 async function refill() {
   if (state.busy) return;
   state.busy = true;
-  const key = state.cat + "|" + [...state.want].sort();
+  const key = () => state.cat + "|" + [...state.want].sort() + "|" + (state.user?.id ?? "guest");
+  const k = key();
   const more = await fetchDeck();
-  if (key !== state.cat + "|" + [...state.want].sort()) { state.busy = false; return refill(); } // filters changed mid-flight
+  if (k !== key()) { state.busy = false; return refill(); } // filters or account changed mid-flight
   state.dry = more.length === 0;
   state.deck.unshift(...more); // new cards go underneath
   more.slice(-4).forEach((r) => preload(r.image));
@@ -96,12 +183,13 @@ async function refill() {
 }
 
 function cardHTML(r) {
+  const t = tagIcons(r);
   return `
     <img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" draggable="false" />
     <div class="stamp stamp-like"><span>KEEP</span></div>
     <div class="stamp stamp-nope"><span>NOPE</span></div>
     <div class="card-body">
-      <span class="source">${esc(r.source)}</span>${tagEmojis(r).length ? `<span class="card-tags">${tagEmojis(r).map((e) => `<span>${e}</span>`).join("")}</span>` : ""}
+      <span class="source">${esc(r.source)}</span>${t.length ? `<span class="card-tags">${t.map((k) => `<span title="${TAG[k].l}">${icon(TAG[k].i)}</span>`).join("")}</span>` : ""}
       <h2>${esc(r.title)}</h2>
       ${r.description ? `<p>${esc(r.description)}</p>` : ""}
     </div>`;
@@ -136,13 +224,14 @@ function render() {
   $("#btnUndo").disabled = state.history.length === 0;
 
   if (!state.deck.length) {
+    const want = [...state.want];
     deckMsg.innerHTML = state.busy
       ? `<div class="spinner"></div><p>Setting the table…</p>`
-      : state.want.size
-        ? `<div class="big">${[...state.want].map((t) => TAG[t].e).join("")}</div><h3>Nothing left that fits</h3><p>You've swiped every ${[...state.want].map((t) => TAG[t].l.toLowerCase()).join(" + ")} ${CATS[state.cat][1]} we have.</p><div class="row"><button class="btn" id="btnClearTags">Clear filters</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
+      : want.length
+        ? `<div class="big">${want.map((t) => icon(TAG[t].i)).join("")}</div><h3>Nothing left that fits</h3><p>You've swiped every ${want.map((t) => TAG[t].l.toLowerCase()).join(" + ")} ${CATS[state.cat][2]} we have.</p><div class="row"><button class="btn" id="btnClearTags">Clear filters</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
       : state.cat
-        ? `<div class="big">${CATS[state.cat][0]}</div><h3>That's every one of the ${CATS[state.cat][1]}</h3><p>Swipe through everything else, or check the kitchens for more.</p><div class="row"><button class="btn" id="btnAll">Show everything</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
-        : `<div class="big">🧑‍🍳</div><h3>You've seen it all</h3><p>Want me to check the kitchens for new recipes?</p><button class="btn" id="btnHarvest">Find fresh recipes</button>`;
+        ? `<div class="big">${icon(CATS[state.cat][0])}</div><h3>That's every one of the ${CATS[state.cat][2]}</h3><p>Swipe through everything else, or check the kitchens for more.</p><div class="row"><button class="btn" id="btnAll">Show everything</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
+        : `<div class="big">${icon("chef-hat")}</div><h3>You've seen it all</h3><p>Want me to check the kitchens for new recipes?</p><button class="btn" id="btnHarvest">Find fresh recipes</button>`;
     deckMsg.hidden = false;
     $("#btnHarvest")?.addEventListener("click", harvest);
     $("#btnAll")?.addEventListener("click", () => setCat(""));
@@ -154,17 +243,13 @@ function render() {
 
 const topCard = () => [...deckEl.querySelectorAll(".card:not(.gone):not(.toss)")].pop();
 
-// Course filter: toss the current cards, deal a fresh hand for the chosen course.
+// Course filter: toss the current cards, deal a fresh hand.
 let dealt = false;
 function setCat(cat) {
   if (cat === state.cat) return;
   state.cat = cat;
-  document.querySelectorAll("#cats .cat").forEach((b) => {
-    const on = b.dataset.cat === cat;
-    b.classList.toggle("is-active", on);
-    b.setAttribute("aria-checked", on);
-  });
-  try { localStorage.setItem("forks:cat", cat); } catch {}
+  markCat($("#cats"), cat);
+  ls.set("forks:cat", cat);
   reshuffle();
 }
 function reshuffle() {
@@ -181,7 +266,7 @@ function onWantChange() {
   renderTagRow($("#tags"), state.want, onWantChange);
   reshuffle();
 }
-document.querySelectorAll("#cats .cat").forEach((b) => b.addEventListener("click", () => setCat(b.dataset.cat)));
+$("#cats").addEventListener("click", (e) => { const b = e.target.closest(".cat"); if (b) setCat(b.dataset.cat); });
 
 // One-time intro: lean right (KEEP), then left (NOPE), then settle.
 let taught = false;
@@ -189,7 +274,6 @@ function maybeTeach(el) {
   if (taught || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   taught = true;
   const like = el.querySelector(".stamp-like"), nope = el.querySelector(".stamp-nope");
-  const ease = { easing: "cubic-bezier(.45,0,.25,1)", fill: "forwards" };
   const lean = (x, r) => `translate(${x}px, 0) rotate(${r}deg)`;
   const card = el.animate([
     { transform: lean(0, 0), offset: 0 },
@@ -198,7 +282,7 @@ function maybeTeach(el) {
     { transform: lean(-36, -3), offset: 0.62 },
     { transform: lean(-36, -3), offset: 0.78 },
     { transform: lean(0, 0), offset: 1 },
-  ], { duration: 1800, delay: 500, ...ease });
+  ], { duration: 1800, delay: 500, easing: "cubic-bezier(.45,0,.25,1)", fill: "forwards" });
   const fade = (stamp, a, b, c, d) => stamp.animate([
     { opacity: 0, offset: 0 }, { opacity: 0, offset: a }, { opacity: 0.9, offset: b },
     { opacity: 0.9, offset: c }, { opacity: 0, offset: d }, { opacity: 0, offset: 1 },
@@ -216,7 +300,6 @@ function bindDrag(el) {
   el._bound = true;
   let sx = 0, sy = 0, dx = 0, dy = 0, down = false;
   const like = el.querySelector(".stamp-like"), nope = el.querySelector(".stamp-nope");
-
   el.addEventListener("pointerdown", (e) => {
     if (el !== topCard()) return;
     down = true; sx = e.clientX; sy = e.clientY; dx = dy = 0;
@@ -237,17 +320,18 @@ function bindDrag(el) {
     const threshold = Math.min(110, el.offsetWidth * 0.28);
     if (dx > threshold) swipe(true, e);
     else if (dx < -threshold) swipe(false, e);
-    else if (Math.abs(dx) < 5 && Math.abs(dy) < 5) { /* tap: no-op */ el.style.transform = ""; }
     else { el.style.transform = ""; like.style.opacity = nope.style.opacity = 0; }
   };
   el.addEventListener("pointerup", end);
   el.addEventListener("pointercancel", end);
 }
 
+const sheetOpen = () => ["#break", "#save", "#acct"].some((s) => !$(s).hidden);
+
 async function swipe(liked, evt) {
   const el = topCard();
   const recipe = state.deck[state.deck.length - 1];
-  if (!el || !recipe) return;
+  if (!el || !recipe || sheetOpen()) return;
 
   el._stopTeach?.();
   el.classList.add("gone");
@@ -260,7 +344,6 @@ async function swipe(liked, evt) {
   state.deck.pop();
   state.history.push({ recipe, liked });
   state.round.push({ recipe, liked });
-  if (state.round.length >= BREAK_EVERY) setTimeout(checkIn, 450);
   const btn = liked ? $("#btnLike") : $("#btnNope");
   btn.classList.remove("pulse"); void btn.offsetWidth; btn.classList.add("pulse");
 
@@ -273,14 +356,20 @@ async function swipe(liked, evt) {
   }
   render();
 
-  const { error } = await db.from("meals_swipes").upsert({ recipe_id: recipe.id, liked, swiped_at: new Date().toISOString() });
+  const error = await store.swipe(recipe, liked);
   if (error) { console.error(error); toast("Couldn't save that swipe"); return; }
+  updateAcct();
+
+  // Nudges: save-your-keeps for guests first, otherwise the 20-swipe check-in.
+  if (shouldOfferSave()) { state.ctaShown = true; setTimeout(() => openSave("cta"), 450); }
+  else if (state.round.length >= BREAK_EVERY) setTimeout(checkIn, 450);
+
   if (++state.sinceRefine >= REFINE_EVERY) { state.sinceRefine = 0; refineTaste(true); }
 }
 
-// Re-learn taste from all swipes, then re-rank whatever is queued behind the visible cards.
+// Re-rank whatever is queued behind the visible cards, using everything swiped so far.
 async function refineTaste(announce) {
-  const { data, error } = await db.rpc("meals_refine");
+  const { data, error } = await db.rpc("meals_taste_top", guestIds());
   if (error) console.error(error);
   state.deck = state.deck.slice(-3);
   state.dry = false;
@@ -290,6 +379,7 @@ async function refineTaste(announce) {
 }
 
 async function undo() {
+  if (sheetOpen()) return;
   const last = state.history.pop();
   if (!last) return;
   if (state.round.at(-1)?.recipe.id === last.recipe.id) state.round.pop();
@@ -300,19 +390,19 @@ async function undo() {
     renderKept();
   }
   render();
-  await db.from("meals_swipes").delete().eq("recipe_id", last.recipe.id);
+  await store.unswipe(last.recipe.id);
+  updateAcct();
 }
 
 async function harvest() {
   deckMsg.innerHTML = `<div class="spinner"></div><p>Raiding the pantries…</p>`;
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/meals-harvest`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${SUPABASE_ANON}`, apikey: SUPABASE_ANON },
+      method: "POST", headers: { Authorization: `Bearer ${SUPABASE_ANON}`, apikey: SUPABASE_ANON },
     });
     const json = await res.json();
     toast(json.added ? `${json.added} fresh recipes` : "Nothing new yet. Check back tomorrow.");
-    // Tag the new arrivals (ingredients, cook time) so diet filters work on them. Two batches covers a harvest.
+    // Tag the new arrivals (ingredients, cook time) so diet filters work on them.
     if (json.added) for (let i = 0; i < 2; i++) await fetch(`${SUPABASE_URL}/functions/v1/meals-enrich`, {
       method: "POST", headers: { Authorization: `Bearer ${SUPABASE_ANON}`, apikey: SUPABASE_ANON },
     }).catch(() => {});
@@ -323,13 +413,7 @@ async function harvest() {
 
 // ---------- kept ----------
 async function loadKept() {
-  const { data, error } = await db
-    .from("meals_swipes")
-    .select("swiped_at, recipe:meals_recipes(*)")
-    .eq("liked", true)
-    .order("swiped_at", { ascending: false });
-  if (error) { console.error(error); return; }
-  state.kept = data.filter((d) => d.recipe).map((d) => clean({ ...d.recipe, swiped_at: d.swiped_at }));
+  state.kept = await store.kept();
   updateCount();
   renderKept();
 }
@@ -352,10 +436,9 @@ function highlight(text, terms) {
 }
 
 function renderKept() {
-  // Course chips with counts; sources narrow to what's in the chosen course.
   const counts = { "": state.kept.length };
   state.kept.forEach((r) => { counts[r.category || "main"] = (counts[r.category || "main"] || 0) + 1; });
-  document.querySelectorAll("#keptCats .cat").forEach((b) => {
+  $("#keptCats").querySelectorAll(".cat").forEach((b) => {
     const n = counts[b.dataset.cat] || 0, on = b.dataset.cat === state.keptCat;
     b.classList.toggle("is-active", on);
     b.classList.toggle("is-empty", !n && !on);
@@ -373,26 +456,26 @@ function renderKept() {
   const rows = state.kept.filter((r) => {
     if (!inCat(r)) return false;
     if (state.source !== "All" && r.source !== state.source) return false;
-    const hay = norm(`${r.title} ${r.source} ${r.description || ""}`);
-    return terms.every((t) => hay.includes(t));
+    return terms.every((t) => norm(`${r.title} ${r.source} ${r.description || ""}`).includes(t));
   });
 
-  $("#list").innerHTML = rows.map((r, i) => `
+  $("#list").innerHTML = rows.map((r, i) => {
+    const t = tagIcons(r, 4);
+    return `
     <li class="item" data-id="${r.id}" style="animation-delay:${Math.min(i, 12) * 20}ms">
       <img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" />
       <a href="${esc(r.url)}" target="_blank" rel="noopener">
         <h4>${highlight(r.title, state.query.split(/\s+/).filter(Boolean))}</h4>
-        <small>${esc(r.source)}${tagEmojis(r, 4).length ? `<span class="mini">${tagEmojis(r, 4).join("")}</span>` : ""}</small>
+        <small>${esc(r.source)}${t.length ? `<span class="mini">${t.map((k) => `<span title="${TAG[k].l}">${icon(TAG[k].i)}</span>`).join("")}</span>` : ""}</small>
       </a>
-      <button class="rm" aria-label="Remove ${esc(r.title)}" title="Remove">
-        <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </li>`).join("");
+      <button class="rm" aria-label="Remove ${esc(r.title)}" title="Remove">${icon("x")}</button>
+    </li>`;
+  }).join("");
 
   const empty = $("#keptEmpty");
   empty.hidden = rows.length > 0;
-  const [emoji, label] = CATS[state.keptCat];
-  empty.querySelector(".empty-emoji").textContent = state.kept.length ? emoji : "🍽️";
+  const [ic, , label] = CATS[state.keptCat];
+  $("#emptyIcon").innerHTML = icon(state.kept.length ? ic : "heart");
   empty.querySelector("p").textContent = !state.kept.length
     ? "Nothing kept yet. Go swipe right on something delicious."
     : state.query
@@ -403,7 +486,7 @@ function renderKept() {
   const go = $("#emptyGo");
   go.hidden = !!(state.kept.length && state.query);
   go.textContent = state.kept.length && (state.keptCat || state.keptWant.size)
-    ? `Swipe ${[...state.keptWant].map((t) => TAG[t].e).join("")}${state.keptCat ? " " + label + " " + emoji : " these"}`.replace("Swipe  ", "Swipe ")
+    ? `Swipe ${state.keptWant.size ? [...state.keptWant].map((t) => TAG[t].l.toLowerCase()).join(" + ") + " " : ""}${state.keptCat ? label : "these"}`
     : "Start swiping";
 }
 
@@ -418,8 +501,9 @@ $("#list").addEventListener("click", async (e) => {
     updateCount();
     renderKept();
   }, 280);
-  const { error } = await db.from("meals_swipes").update({ liked: false }).eq("recipe_id", id);
+  const error = await store.unkeep(id);
   toast(error ? "Couldn't remove that" : "Removed");
+  updateAcct();
 });
 $("#emptyGo").addEventListener("click", () => {
   if (state.kept.length && state.keptWant.size) {
@@ -435,10 +519,9 @@ $("#keptCats").addEventListener("click", (e) => {
   if (!b || b.dataset.cat === state.keptCat) return;
   state.keptCat = b.dataset.cat;
   state.source = "All";
-  try { localStorage.setItem("forks:keptCat", state.keptCat); } catch {}
+  ls.set("forks:keptCat", state.keptCat);
   renderKept();
 });
-try { const c = localStorage.getItem("forks:keptCat"); if (c && c in CATS) state.keptCat = c; } catch {}
 $("#chips").addEventListener("click", (e) => {
   const c = e.target.closest(".chip");
   if (!c) return;
@@ -447,51 +530,182 @@ $("#chips").addEventListener("click", (e) => {
 });
 $("#search").addEventListener("input", (e) => { state.query = e.target.value; renderKept(); });
 
-// ---------- tabs & keys ----------
-// ---------- break check-in (every 20 swipes) ----------
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
+// ---------- sheets ----------
+function openSheet(sel) {
+  const s = $(sel);
+  s.hidden = false;
+  return s;
+}
+function closeSheet(sel, then) {
+  const s = $(sel);
+  if (s.hidden) return then?.();
+  s.classList.add("closing");
+  setTimeout(() => { s.hidden = true; s.classList.remove("closing"); then?.(); }, 230);
+}
+["#break", "#save", "#acct"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+  if (e.target === $(sel)) sel === "#break" ? $("#breakGo").click() : sel === "#save" ? skipSave() : closeSheet(sel);
+}));
+
+// 20-swipe check-in
 function checkIn() {
-  if (!$("#break").hidden) return;
+  if (sheetOpen()) return;
   const kept = state.round.filter((s) => s.liked).map((s) => s.recipe);
-  let emoji, title, text;
+  let ic, title, text;
   if (kept.length >= 8) {
-    [emoji, title] = pick([["🤤", "Hungry much?"], ["🔥", "On a roll"], ["👨‍🍳", "Chef's kiss"]]);
+    [ic, title] = pick([["flame", "On a roll"], ["chef-hat", "Chef's kiss"], ["sparkles", "Hungry much?"]]);
     text = `You kept ${kept.length} of your last ${BREAK_EVERY}. That's a lot of good dinners.`;
   } else if (kept.length) {
-    [emoji, title] = pick([["🍽️", "Twenty down"], ["✨", "Nice haul"], ["🥂", "Look at you go"]]);
+    [ic, title] = pick([["party-popper", "Twenty down"], ["sparkles", "Nice haul"], ["chef-hat", "Look at you go"]]);
     text = `${kept.length} new keeper${kept.length > 1 ? "s" : ""} from your last ${BREAK_EVERY} swipes.`;
   } else {
-    [emoji, title] = pick([["🧐", "Tough crowd"], ["😅", "Picky, picky"]]);
+    [ic, title] = pick([["frown", "Tough crowd"], ["search", "Picky, picky"]]);
     text = `Nothing grabbed you in the last ${BREAK_EVERY}. Maybe try another course?`;
   }
-  $("#breakEmoji").textContent = emoji;
+  $("#breakIcon").innerHTML = icon(ic);
   $("#breakTitle").textContent = title;
   $("#breakText").textContent = text;
-  const shown = kept.slice(-5);
-  $("#breakThumbs").innerHTML = shown.map((r, i) =>
-    `<img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" style="animation-delay:${200 + i * 70}ms" />`).join("") +
-    (kept.length > shown.length ? `<span class="more" style="animation-delay:${200 + shown.length * 70}ms">+${kept.length - shown.length}</span>` : "");
+  $("#breakThumbs").innerHTML = thumbs(kept);
   $("#breakStop").textContent = kept.length ? "I'm done for today" : "Call it a day";
-  $("#break").hidden = false;
+  openSheet("#break");
   $("#breakGo").focus({ preventScroll: true });
-  if (kept.length) setTimeout(() => {
-    const r = $("#breakThumbs").getBoundingClientRect();
-    hearts(r.left + r.width / 2, r.top);
-  }, 500);
+  if (kept.length) setTimeout(() => { const r = $("#breakThumbs").getBoundingClientRect(); hearts(r.left + r.width / 2, r.top); }, 500);
 }
-function closeBreak(then) {
-  const b = $("#break");
-  b.classList.add("closing");
-  setTimeout(() => { b.hidden = true; b.classList.remove("closing"); then?.(); }, 230);
+function thumbs(list) {
+  const shown = list.slice(-5);
+  return shown.map((r, i) => `<img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" style="animation-delay:${200 + i * 70}ms" />`).join("") +
+    (list.length > shown.length ? `<span class="more" style="animation-delay:${200 + shown.length * 70}ms">+${list.length - shown.length}</span>` : "");
+}
+$("#breakGo").addEventListener("click", () => { state.round = []; closeSheet("#break", () => toast(pick(["Back to it", "Onward", "Let's eat"]))); });
+$("#breakStop").addEventListener("click", () => {
   state.round = [];
-}
-$("#breakGo").addEventListener("click", () => closeBreak(() => toast(pick(["Back to it 🍴", "Onward 🫡", "Let's eat 🍽️"]))));
-$("#breakStop").addEventListener("click", () => closeBreak(() => {
-  show("kept");
-  toast(state.kept.length ? "Good picks. See you tomorrow 👋" : "See you tomorrow 👋");
-}));
-$("#break").addEventListener("click", (e) => { if (e.target.id === "break") $("#breakGo").click(); });
+  closeSheet("#break", () => {
+    show("kept");
+    if (!state.user && state.kept.length) openSave("manual");
+    else toast(state.kept.length ? "Good picks. See you tomorrow" : "See you tomorrow");
+  });
+});
 
+// ---------- account: save your keeps / magic link ----------
+const browsing = () => ls.get("forks:browsing", false);
+const shouldOfferSave = () =>
+  !state.user && !state.ctaShown && !browsing() && Object.keys(guest.swipes).length >= CTA_AFTER && guest.kept.length >= 1;
+
+function setSave(mode, email = "") {
+  const keeps = guest.kept.length;
+  const form = $("#saveForm");
+  form.dataset.mode = mode;
+  $("#saveErr").hidden = true;
+  const field = mode === "cta" || mode === "manual";
+  $("#saveField").hidden = !field;
+  $("#saveSkip").hidden = !field;
+  $("#saveThumbs").innerHTML = mode === "cta" ? thumbs(guest.kept.slice(0, 5).reverse()) : "";
+  $("#saveGo").disabled = false;
+  if (mode === "cta") {
+    $("#saveIcon").innerHTML = icon("bookmark");
+    $("#saveTitle").textContent = "Don't lose your keeps";
+    $("#saveText").textContent = `You've kept ${keeps} so far. Add your email and we'll save them. No password, just a magic link.`;
+    $("#saveGo").textContent = "Save my keeps";
+    $("#saveSkip").textContent = "No thanks, just browsing";
+  } else if (mode === "manual") {
+    $("#saveIcon").innerHTML = icon(keeps ? "bookmark" : "mail");
+    $("#saveTitle").textContent = keeps ? "Save your keeps" : "Sign in";
+    $("#saveText").textContent = keeps
+      ? `Your ${keeps} keep${keeps === 1 ? " lives" : "s live"} on this device for now. Add your email to save ${keeps === 1 ? "it" : "them"} anywhere.`
+      : "Enter your email and we'll send a magic link. No password needed.";
+    $("#saveGo").textContent = keeps ? "Save my keeps" : "Send my link";
+    $("#saveSkip").textContent = "Not now";
+  } else if (mode === "sent-new") {
+    $("#saveIcon").innerHTML = icon("mail-check");
+    $("#saveTitle").textContent = "Saved. Check your inbox";
+    $("#saveText").textContent = `We sent a link to ${email}. Tap it to finish signing in, on this phone or any other.${keeps ? " Your keeps are already saved to your account." : ""}`;
+    $("#saveGo").textContent = "Keep swiping";
+  } else if (mode === "sent-existing") {
+    $("#saveIcon").innerHTML = icon("mail");
+    $("#saveTitle").textContent = "Welcome back";
+    $("#saveText").textContent = `${email} already has an account, so we sent you a magic link to sign in.${keeps ? " Today's keeps come along when you tap it." : ""}`;
+    $("#saveGo").textContent = "Keep swiping";
+  }
+}
+function openSave(mode) {
+  if (state.user || (mode === "cta" && sheetOpen())) return;
+  setSave(mode);
+  openSheet("#save");
+  if (matchMedia("(hover: hover)").matches) setTimeout(() => $("#saveEmail").focus(), 300);
+}
+function skipSave() {
+  if ($("#saveForm").dataset.mode === "cta") { ls.set("forks:browsing", true); closeSheet("#save", () => toast("Happy browsing. Your keeps stay on this device.")); }
+  else closeSheet("#save");
+}
+function saveError(msg) {
+  const e = $("#saveErr");
+  e.textContent = msg;
+  e.hidden = false;
+  $("#saveGo").disabled = false;
+  $("#saveGo").classList.remove("is-busy");
+}
+$("#saveSkip").addEventListener("click", skipSave);
+$("#saveForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const mode = $("#saveForm").dataset.mode;
+  if (mode.startsWith("sent")) return closeSheet("#save");
+  const email = $("#saveEmail").value.trim().toLowerCase();
+  if (!EMAIL_OK.test(email)) return saveError("That doesn't look like an email address.");
+  $("#saveGo").disabled = true;
+  $("#saveGo").classList.add("is-busy");
+  const { p_liked: liked, p_noped: noped } = guestIds();
+  let res, json = {};
+  try {
+    res = await fetch(`${SUPABASE_URL}/functions/v1/meals-auth`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SUPABASE_ANON}`, apikey: SUPABASE_ANON, "content-type": "application/json" },
+      body: JSON.stringify({ email, origin: location.origin, guest: { liked, noped } }),
+    });
+    json = await res.json().catch(() => ({}));
+  } catch { return saveError("Couldn't reach the kitchen. Try again?"); }
+  $("#saveGo").classList.remove("is-busy");
+  if (res.ok && json.status === "new") { ls.set("forks:pendingEmail", email); return setSave("sent-new", email); }
+  if (res.ok && json.status === "existing") { ls.set("forks:pendingEmail", email); return setSave("sent-existing", email); }
+  if (json.error === "slow_down") return saveError("We just sent you a link. Give it a minute, then try again.");
+  if (json.error === "email_not_configured") return saveError("Email sign-in isn't switched on yet. Your keeps are safe on this device for now.");
+  saveError("Couldn't send that. Try again?");
+});
+
+// Signed-in account sheet
+$("#acctBtn").addEventListener("click", () => {
+  if (!state.user) return openSave("manual");
+  $("#acctSheetIcon").innerHTML = icon("circle-user-round");
+  $("#acctText").textContent = `${state.user.email}. Your keeps are saved to your account.`;
+  openSheet("#acct");
+});
+$("#acctDone").addEventListener("click", () => closeSheet("#acct"));
+$("#acctOut").addEventListener("click", async () => {
+  await db.auth.signOut();
+  closeSheet("#acct", () => toast("Signed out"));
+});
+function updateAcct() {
+  $("#acctBtn").classList.toggle("is-in", !!state.user);
+  $("#acctBtn").setAttribute("aria-label", state.user ? `Signed in as ${state.user.email}` : "Save your keeps");
+  $("#acctDot").hidden = !!state.user || !guest.kept.length;
+}
+
+// Auth state drives whose swipes we show.
+async function setUser(user, { merge = false } = {}) {
+  const changed = (user?.id ?? null) !== (state.user?.id ?? null);
+  state.user = user;
+  if (user && merge) {
+    const n = await mergeGuest();
+    toast(n ? `Signed in. ${n} keep${n === 1 ? "" : "s"} saved` : "Signed in");
+  }
+  updateAcct();
+  if (changed || merge) {
+    state.history = [];
+    state.round = [];
+    await loadKept();
+    reshuffle();
+  }
+}
+
+// ---------- tabs & keys ----------
 function show(view) {
   document.querySelectorAll(".tab").forEach((t) => {
     const on = t.dataset.view === view;
@@ -499,10 +713,11 @@ function show(view) {
     t.setAttribute("aria-selected", on);
   });
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("is-active", v.id === `view-${view}`));
-  try { localStorage.setItem("forks:view", view); } catch {}
-  if (view === "kept") setTimeout(() => window.matchMedia("(hover: hover)").matches && $("#search").focus(), 50);
+  ls.set("forks:view", view);
+  if (view === "kept") setTimeout(() => matchMedia("(hover: hover)").matches && $("#search").focus(), 50);
 }
 document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => show(t.dataset.view)));
+$("#logoBtn").addEventListener("click", () => { show("swipe"); window.scrollTo({ top: 0, behavior: "smooth" }); });
 
 $("#btnLike").addEventListener("click", () => swipe(true));
 $("#btnNope").addEventListener("click", () => swipe(false));
@@ -510,6 +725,8 @@ $("#btnUndo").addEventListener("click", undo);
 
 document.addEventListener("keydown", (e) => {
   if (!$("#break").hidden) { if (e.key === "Escape") $("#breakGo").click(); return; }
+  if (!$("#save").hidden) { if (e.key === "Escape") skipSave(); return; }
+  if (!$("#acct").hidden) { if (e.key === "Escape") closeSheet("#acct"); return; }
   if (e.target.matches("input")) { if (e.key === "Escape") e.target.blur(); return; }
   if (!$("#view-swipe").classList.contains("is-active")) {
     if (e.key === "/") { e.preventDefault(); $("#search").focus(); }
@@ -522,11 +739,42 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ---------- boot ----------
-try { const v = localStorage.getItem("forks:view"); if (v) show(v); } catch {}
-try { const c = localStorage.getItem("forks:cat"); if (c && c in CATS) { state.cat = c; document.querySelectorAll("#cats .cat").forEach((b) => { const on = b.dataset.cat === c; b.classList.toggle("is-active", on); b.setAttribute("aria-checked", on); }); } } catch {}
+$("#btnUndo").innerHTML = icon("undo-2");
+$("#btnNope").innerHTML = icon("x");
+$("#btnLike").innerHTML = icon("heart");
+$("#btnOpen").innerHTML = icon("arrow-up-right");
+$("#acctIcon").innerHTML = icon("circle-user-round");
+$("#searchIcon").innerHTML = icon("search");
+$("#footHeart").innerHTML = icon("heart");
+
+const v = ls.get("forks:view", "swipe");
+if (v === "kept") show("kept");
+const c = ls.get("forks:cat", "");
+if (c in CATS) state.cat = c;
+const kc = ls.get("forks:keptCat", "");
+if (kc in CATS) state.keptCat = kc;
+renderCats($("#cats"), state.cat, false);
+renderCats($("#keptCats"), state.keptCat, true);
 state.want = loadSet("forks:want");
 state.keptWant = loadSet("forks:keptWant");
 renderTagRow($("#tags"), state.want, onWantChange);
 renderTagRow($("#keptTags"), state.keptWant, () => { saveSet("forks:keptWant", state.keptWant); renderKept(); });
-loadKept();
-refineTaste(false);
+
+(async () => {
+  // Arriving from a magic link?
+  const params = new URLSearchParams(location.search);
+  const hash = params.get("login");
+  let merge = false;
+  if (hash) {
+    history.replaceState(null, "", location.pathname);
+    const { error } = await db.auth.verifyOtp({ token_hash: hash, type: "magiclink" });
+    if (error) { toast("That link has expired. Send yourself a fresh one."); setTimeout(() => openSave("manual"), 600); }
+    else { merge = true; ls.del("forks:pendingEmail"); }
+  }
+  const { data } = await db.auth.getSession();
+  await setUser(data.session?.user ?? null, { merge });
+  if (!state.user) { await loadKept(); refill(); }
+  db.auth.onAuthStateChange((_evt, session) => {
+    if ((session?.user?.id ?? null) !== (state.user?.id ?? null)) setUser(session?.user ?? null);
+  });
+})();
