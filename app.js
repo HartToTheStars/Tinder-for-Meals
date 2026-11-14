@@ -1,11 +1,14 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=12";
+import { icon } from "./icons.js?v=13";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
 const SUPABASE_ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtd3N5bG9mZ2ZvY21icXZtZ2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMDg1NTMsImV4cCI6MjEwMDU4NDU1M30.Jxsz_HK6jE4y2T36RJMtRWpaXlk0ugyEL2b7CXTrgE8";
-const db = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, detectSessionInUrl: false } });
+// Once signed in, stay signed in: the session lives in localStorage and refreshes itself until sign-out.
+const db = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: "forks-auth" },
+});
 
 const $ = (s) => document.querySelector(s);
 const deckEl = $("#deck");
@@ -678,6 +681,28 @@ $("#acctBtn").addEventListener("click", () => {
   openSheet("#acct");
 });
 $("#acctDone").addEventListener("click", () => closeSheet("#acct"));
+// Delete account: tap once to arm, again to confirm.
+$("#acctDelete").addEventListener("click", async () => {
+  const b = $("#acctDelete");
+  if (!b.classList.contains("armed")) {
+    b.classList.add("armed");
+    b.textContent = "Tap again to erase your account and keeps";
+    clearTimeout(b._t);
+    b._t = setTimeout(() => { b.classList.remove("armed"); b.textContent = "Delete my account"; }, 4000);
+    return;
+  }
+  b.textContent = "Deleting…";
+  const { data } = await db.auth.getSession();
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/meals-account`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${data.session?.access_token}`, apikey: SUPABASE_ANON },
+  }).catch(() => null);
+  b.classList.remove("armed");
+  b.textContent = "Delete my account";
+  if (!res?.ok) return toast("Couldn't delete that. Try again?");
+  await db.auth.signOut();
+  closeSheet("#acct", () => toast("Account deleted. Everything's gone."));
+});
 $("#acctOut").addEventListener("click", async () => {
   await db.auth.signOut();
   closeSheet("#acct", () => toast("Signed out"));
