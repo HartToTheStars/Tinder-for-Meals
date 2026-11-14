@@ -7,14 +7,16 @@
   --tomato: #e8553e;
   --basil: #3f9b6b;
   --shadow: 0 1px 2px rgb(42 33 28 / .06), 0 12px 32px -12px rgb(42 33 28 / .28);
+  --glass: rgb(255 253 249 / .72);
   --r: 22px;
   --serif: "Fraunces", Georgia, serif;
   --sans: "Inter", system-ui, -apple-system, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1b1714; --paper: #26201c; --ink: #f3ebe2; --muted: #a39587; --line: #3a312b;
+    --bg: #1b1714; --paper: #26201c; --ink: #f3ebe2; --muted: #b8aa9c; --line: #3a312b;
     --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 16px 40px -14px rgb(0 0 0 / .7);
+    --glass: rgb(38 32 28 / .72);
   }
 }
 
@@ -304,9 +306,12 @@ main { flex: 1; display: flex; flex-direction: column; }
   .home .ambient::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 30%, var(--paper) 85%); }
   .home .stage { display: flex; flex-direction: column; width: min(540px, 100%); flex: 1; min-height: 0; }
   .home .stage .tags { margin: -4px 0 16px; padding: 2px 0; justify-content: center; flex-wrap: wrap; overflow: visible; }
-  .home .tag { background: rgb(255 253 249 / .7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-  .home .stage .cat { background: rgb(255 253 249 / .75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-  .home .stage .cat.is-active { background: var(--ink); }
+  .home .tag { background: var(--glass); color: var(--ink); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .home #view-kept .tag { background: var(--bg); }
+  .home .tag.is-on { background: rgb(63 155 107 / .2); color: var(--basil); }
+  .home .tag.clear { background: transparent; color: var(--tomato); }
+  .home .stage .cat { background: var(--glass); color: var(--ink); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .home .stage .cat.is-active { background: var(--ink); color: var(--bg); }
   .home .deck { max-height: 720px; min-height: 380px; margin-bottom: 30px; }
   .home .card { cursor: grab; }
   .home .card h2 { font-size: 34px; }
