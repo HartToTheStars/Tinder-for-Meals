@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=17";
+import { icon } from "./icons.js?v=18";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -435,6 +435,7 @@ async function loadKept() {
 function updateCount(bump) {
   for (const c of [$("#keptCount"), $("#keptCount2")]) {
     c.textContent = state.kept.length;
+    c.hidden = !state.kept.length; // no "0" badges
     if (bump) { c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
   }
 }
