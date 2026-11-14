@@ -9,7 +9,8 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 const $ = (s) => document.querySelector(s);
 const deckEl = $("#deck");
 const deckMsg = $("#deckMsg");
-const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0 };
+const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0, cat: "" };
+const CATS = { "": ["🍽️", "recipes"], main: ["🍝", "mains"], appetizer: ["🥟", "apps"], dessert: ["🍰", "desserts"], drink: ["🍹", "drinks"] };
 const REFINE_EVERY = 10;
 
 // ---------- helpers ----------
@@ -52,7 +53,7 @@ const preload = (src) => { const i = new Image(); i.referrerPolicy = "no-referre
 // ---------- deck ----------
 async function fetchDeck() {
   const exclude = new Set([...state.deck.map((r) => r.id), ...state.history.map((h) => h.recipe.id)]);
-  const { data, error } = await db.rpc("meals_deck", { n: 20 });
+  const { data, error } = await db.rpc("meals_deck", { n: 20, sources: null, cat: state.cat || null });
   if (error) { console.error(error); return []; }
   return data.filter((r) => !exclude.has(r.id) && !JUNK.test(r.title)).map(clean);
 }
@@ -60,7 +61,9 @@ async function fetchDeck() {
 async function refill() {
   if (state.busy) return;
   state.busy = true;
+  const cat = state.cat;
   const more = await fetchDeck();
+  if (cat !== state.cat) { state.busy = false; return refill(); } // course changed mid-flight
   state.dry = more.length === 0;
   state.deck.unshift(...more); // new cards go underneath
   more.slice(-4).forEach((r) => preload(r.image));
@@ -82,7 +85,7 @@ function cardHTML(r) {
 
 function render() {
   const visible = state.deck.slice(-4);
-  const existing = new Map([...deckEl.querySelectorAll(".card")].map((el) => [el.dataset.id, el]));
+  const existing = new Map([...deckEl.querySelectorAll(".card:not(.toss)")].map((el) => [el.dataset.id, el]));
   const keep = new Set(visible.map((r) => r.id));
   existing.forEach((el, id) => { if (!keep.has(id) && !el.classList.contains("gone")) el.remove(); });
 
@@ -91,7 +94,7 @@ function render() {
     let el = existing.get(r.id);
     if (!el || el.classList.contains("gone")) {
       el = document.createElement("article");
-      el.className = "card";
+      el.className = dealt ? "card deal" : "card";
       el.dataset.id = r.id;
       el.innerHTML = cardHTML(r);
       const img = el.querySelector("img");
@@ -111,15 +114,38 @@ function render() {
   if (!state.deck.length) {
     deckMsg.innerHTML = state.busy
       ? `<div class="spinner"></div><p>Setting the table…</p>`
-      : `<div class="big">🧑‍🍳</div><h3>You've seen it all</h3><p>Want me to check the kitchens for new recipes?</p><button class="btn" id="btnHarvest">Find fresh recipes</button>`;
+      : state.cat
+        ? `<div class="big">${CATS[state.cat][0]}</div><h3>That's every one of the ${CATS[state.cat][1]}</h3><p>Swipe through everything else, or check the kitchens for more.</p><div class="row"><button class="btn" id="btnAll">Show everything</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
+        : `<div class="big">🧑‍🍳</div><h3>You've seen it all</h3><p>Want me to check the kitchens for new recipes?</p><button class="btn" id="btnHarvest">Find fresh recipes</button>`;
     deckMsg.hidden = false;
     $("#btnHarvest")?.addEventListener("click", harvest);
+    $("#btnAll")?.addEventListener("click", () => setCat(""));
   } else deckMsg.hidden = true;
 
   if (state.deck.length < 5 && !state.dry && !state.busy) refill();
 }
 
-const topCard = () => [...deckEl.querySelectorAll(".card:not(.gone)")].pop();
+const topCard = () => [...deckEl.querySelectorAll(".card:not(.gone):not(.toss)")].pop();
+
+// Course filter: toss the current cards, deal a fresh hand for the chosen course.
+let dealt = false;
+function setCat(cat) {
+  if (cat === state.cat) return;
+  state.cat = cat;
+  document.querySelectorAll(".cat").forEach((b) => {
+    const on = b.dataset.cat === cat;
+    b.classList.toggle("is-active", on);
+    b.setAttribute("aria-checked", on);
+  });
+  try { localStorage.setItem("forks:cat", cat); } catch {}
+  deckEl.querySelectorAll(".card").forEach((c) => { c._stopTeach?.(); c.classList.add("toss"); setTimeout(() => c.remove(), 220); });
+  state.deck = [];
+  state.dry = false;
+  dealt = true;
+  deckMsg.hidden = true;
+  setTimeout(refill, 120);
+}
+document.querySelectorAll(".cat").forEach((b) => b.addEventListener("click", () => setCat(b.dataset.cat)));
 
 // One-time intro: lean right (KEEP), then left (NOPE), then settle.
 let taught = false;
@@ -368,5 +394,6 @@ document.addEventListener("keydown", (e) => {
 
 // ---------- boot ----------
 try { const v = localStorage.getItem("forks:view"); if (v) show(v); } catch {}
+try { const c = localStorage.getItem("forks:cat"); if (c && c in CATS) { state.cat = c; document.querySelectorAll(".cat").forEach((b) => { const on = b.dataset.cat === c; b.classList.toggle("is-active", on); b.setAttribute("aria-checked", on); }); } } catch {}
 loadKept();
 refineTaste(false);
