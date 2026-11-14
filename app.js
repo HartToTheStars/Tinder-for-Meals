@@ -9,7 +9,8 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 const $ = (s) => document.querySelector(s);
 const deckEl = $("#deck");
 const deckMsg = $("#deckMsg");
-const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false };
+const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0 };
+const REFINE_EVERY = 10;
 
 // ---------- helpers ----------
 const esc = (s = "") => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -209,7 +210,19 @@ async function swipe(liked, evt) {
   render();
 
   const { error } = await db.from("meals_swipes").upsert({ recipe_id: recipe.id, liked, swiped_at: new Date().toISOString() });
-  if (error) { console.error(error); toast("Couldn't save that swipe"); }
+  if (error) { console.error(error); toast("Couldn't save that swipe"); return; }
+  if (++state.sinceRefine >= REFINE_EVERY) { state.sinceRefine = 0; refineTaste(true); }
+}
+
+// Re-learn taste from all swipes, then re-rank whatever is queued behind the visible cards.
+async function refineTaste(announce) {
+  const { data, error } = await db.rpc("meals_refine");
+  if (error) console.error(error);
+  state.deck = state.deck.slice(-3);
+  state.dry = false;
+  await refill();
+  const top = (data?.top ?? []).map((t) => t.replace(/^src:/, ""));
+  if (announce) toast(top.length ? `Tuned to you: more ${top.join(", ")}` : "Learning your taste…");
 }
 
 async function undo() {
@@ -356,4 +369,4 @@ document.addEventListener("keydown", (e) => {
 // ---------- boot ----------
 try { const v = localStorage.getItem("forks:view"); if (v) show(v); } catch {}
 loadKept();
-refill();
+refineTaste(false);
