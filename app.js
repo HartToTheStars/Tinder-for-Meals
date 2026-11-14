@@ -9,7 +9,8 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 const $ = (s) => document.querySelector(s);
 const deckEl = $("#deck");
 const deckMsg = $("#deckMsg");
-const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0, cat: "" };
+const state = { deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0, cat: "", round: [] };
+const BREAK_EVERY = 20;
 const CATS = { "": ["🍽️", "recipes"], main: ["🍝", "mains"], appetizer: ["🥟", "apps"], dessert: ["🍰", "desserts"], drink: ["🍹", "drinks"] };
 const REFINE_EVERY = 10;
 
@@ -223,6 +224,8 @@ async function swipe(liked, evt) {
 
   state.deck.pop();
   state.history.push({ recipe, liked });
+  state.round.push({ recipe, liked });
+  if (state.round.length >= BREAK_EVERY) setTimeout(checkIn, 450);
   const btn = liked ? $("#btnLike") : $("#btnNope");
   btn.classList.remove("pulse"); void btn.offsetWidth; btn.classList.add("pulse");
 
@@ -254,6 +257,7 @@ async function refineTaste(announce) {
 async function undo() {
   const last = state.history.pop();
   if (!last) return;
+  if (state.round.at(-1)?.recipe.id === last.recipe.id) state.round.pop();
   state.deck.push(last.recipe);
   if (last.liked) {
     state.kept = state.kept.filter((r) => r.id !== last.recipe.id);
@@ -364,6 +368,50 @@ $("#chips").addEventListener("click", (e) => {
 $("#search").addEventListener("input", (e) => { state.query = e.target.value; renderKept(); });
 
 // ---------- tabs & keys ----------
+// ---------- break check-in (every 20 swipes) ----------
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+function checkIn() {
+  if (!$("#break").hidden) return;
+  const kept = state.round.filter((s) => s.liked).map((s) => s.recipe);
+  let emoji, title, text;
+  if (kept.length >= 8) {
+    [emoji, title] = pick([["🤤", "Hungry much?"], ["🔥", "On a roll"], ["👨‍🍳", "Chef's kiss"]]);
+    text = `You kept ${kept.length} of your last ${BREAK_EVERY}. That's a lot of good dinners.`;
+  } else if (kept.length) {
+    [emoji, title] = pick([["🍽️", "Twenty down"], ["✨", "Nice haul"], ["🥂", "Look at you go"]]);
+    text = `${kept.length} new keeper${kept.length > 1 ? "s" : ""} from your last ${BREAK_EVERY} swipes.`;
+  } else {
+    [emoji, title] = pick([["🧐", "Tough crowd"], ["😅", "Picky, picky"]]);
+    text = `Nothing grabbed you in the last ${BREAK_EVERY}. Maybe try another course?`;
+  }
+  $("#breakEmoji").textContent = emoji;
+  $("#breakTitle").textContent = title;
+  $("#breakText").textContent = text;
+  const shown = kept.slice(-5);
+  $("#breakThumbs").innerHTML = shown.map((r, i) =>
+    `<img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" style="animation-delay:${200 + i * 70}ms" />`).join("") +
+    (kept.length > shown.length ? `<span class="more" style="animation-delay:${200 + shown.length * 70}ms">+${kept.length - shown.length}</span>` : "");
+  $("#breakStop").textContent = kept.length ? "I'm done for today" : "Call it a day";
+  $("#break").hidden = false;
+  $("#breakGo").focus({ preventScroll: true });
+  if (kept.length) setTimeout(() => {
+    const r = $("#breakThumbs").getBoundingClientRect();
+    hearts(r.left + r.width / 2, r.top);
+  }, 500);
+}
+function closeBreak(then) {
+  const b = $("#break");
+  b.classList.add("closing");
+  setTimeout(() => { b.hidden = true; b.classList.remove("closing"); then?.(); }, 230);
+  state.round = [];
+}
+$("#breakGo").addEventListener("click", () => closeBreak(() => toast(pick(["Back to it 🍴", "Onward 🫡", "Let's eat 🍽️"]))));
+$("#breakStop").addEventListener("click", () => closeBreak(() => {
+  show("kept");
+  toast(state.kept.length ? "Good picks. See you tomorrow 👋" : "See you tomorrow 👋");
+}));
+$("#break").addEventListener("click", (e) => { if (e.target.id === "break") $("#breakGo").click(); });
+
 function show(view) {
   document.querySelectorAll(".tab").forEach((t) => {
     const on = t.dataset.view === view;
@@ -381,6 +429,7 @@ $("#btnNope").addEventListener("click", () => swipe(false));
 $("#btnUndo").addEventListener("click", undo);
 
 document.addEventListener("keydown", (e) => {
+  if (!$("#break").hidden) { if (e.key === "Escape") $("#breakGo").click(); return; }
   if (e.target.matches("input")) { if (e.key === "Escape") e.target.blur(); return; }
   if (!$("#view-swipe").classList.contains("is-active")) {
     if (e.key === "/") { e.preventDefault(); $("#search").focus(); }
