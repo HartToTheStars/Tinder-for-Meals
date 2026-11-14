@@ -70,8 +70,8 @@ async function refill() {
 function cardHTML(r) {
   return `
     <img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" draggable="false" />
-    <div class="stamp stamp-like">KEEP</div>
-    <div class="stamp stamp-nope">NOPE</div>
+    <div class="stamp stamp-like"><span>KEEP</span></div>
+    <div class="stamp stamp-nope"><span>NOPE</span></div>
     <div class="card-body">
       <span class="source">${esc(r.source)}</span>
       <h2>${esc(r.title)}</h2>
