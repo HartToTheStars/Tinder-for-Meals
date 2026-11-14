@@ -4,7 +4,7 @@ Uploads the app plus og/ images and s/ share pages. Files are sent with their sh
 ones are skipped by here.now. Auth: a here.now API key in the Authorization header (in this
 environment the network proxy injects it; elsewhere set HERENOW_API_KEY).
 """
-import hashlib, json, mimetypes, os, sys, urllib.request
+import hashlib, json, mimetypes, os, sys, urllib.error, urllib.request
 
 SLUG = "humble-aura-cbq3"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -15,9 +15,12 @@ HEADERS = {"content-type": "application/json", "X-HereNow-Client": "claude-code/
 
 def req(method, url, body=None, headers=HEADERS):
     r = urllib.request.Request(url, data=body, method=method, headers=headers)
-    with urllib.request.urlopen(r) as resp:
-        t = resp.read()
-        return json.loads(t) if t else {}
+    try:
+        with urllib.request.urlopen(r) as resp:
+            t = resp.read()
+            return json.loads(t) if t else {}
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f"{method} {url.split('?')[0]} -> {e.code}: {e.read()[:400].decode(errors='replace')}")
 
 
 def files():
