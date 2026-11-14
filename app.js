@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=16";
+import { icon } from "./icons.js?v=17";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -146,9 +146,13 @@ function markCat(el, active) {
     b.setAttribute("aria-checked", on);
   });
 }
-function renderTagRow(el, selected, onToggle) {
+// `only`: show just these tags (plus any selected ones). Null shows all.
+function renderTagRow(el, selected, onToggle, only = el._only ?? null) {
+  el._only = only;
   const tick = `<span class="tick">${icon("check")}</span>`;
-  el.innerHTML = TAGS.map(([k, ic, l]) =>
+  const shown = TAGS.filter(([k]) => !only || only.has(k) || selected.has(k));
+  el.hidden = !shown.length;
+  el.innerHTML = shown.map(([k, ic, l]) =>
     `<button class="tag ${selected.has(k) ? "is-on" : ""}" data-tag="${k}" aria-pressed="${selected.has(k)}">${tick}${icon(ic, "ti")}${l}</button>`).join("") +
     (selected.size ? `<button class="tag clear" data-tag="__clear">Clear</button>` : "");
   el.onclick = (e) => {
@@ -449,13 +453,26 @@ function highlight(text, terms) {
 function renderKept() {
   const counts = { "": state.kept.length };
   state.kept.forEach((r) => { counts[r.category || "main"] = (counts[r.category || "main"] || 0) + 1; });
+  // Filters only appear once there's something to filter: a course or tag shows up after its first keep.
+  const has = state.kept.length > 0;
+  let shownCats = 0;
   $("#keptCats").querySelectorAll(".cat").forEach((b) => {
     const n = counts[b.dataset.cat] || 0, on = b.dataset.cat === state.keptCat;
     b.classList.toggle("is-active", on);
-    b.classList.toggle("is-empty", !n && !on);
+    b.hidden = !n && !on;
+    if (!b.hidden) shownCats++;
     b.setAttribute("aria-checked", on);
     b.querySelector(".cat-n").textContent = b.dataset.cat && n ? n : "";
   });
+  $("#keptCats").hidden = !has;
+  $("#keptCats").style.gridTemplateColumns = `repeat(${Math.max(shownCats, 1)}, 1fr)`;
+  const avail = new Set(state.kept.flatMap((r) => r.tags || []).filter((t) => TAG[t]));
+  const sig = [...avail].sort().join() + "|" + [...state.keptWant].sort().join();
+  if ($("#keptTags")._sig !== sig) {
+    $("#keptTags")._sig = sig;
+    renderTagRow($("#keptTags"), state.keptWant, onKeptWant, avail);
+  }
+  $(".search").hidden = !has;
   const inCat = (r) => (!state.keptCat || (r.category || "main") === state.keptCat) && [...state.keptWant].every((t) => (r.tags || []).includes(t));
   const sources = ["All", ...new Set(state.kept.filter(inCat).map((r) => r.source))];
   if (!sources.includes(state.source)) state.source = "All";
@@ -793,7 +810,7 @@ renderCats($("#keptCats"), state.keptCat, true);
 state.want = loadSet("forks:want");
 state.keptWant = loadSet("forks:keptWant");
 renderTagRow($("#tags"), state.want, onWantChange);
-renderTagRow($("#keptTags"), state.keptWant, () => { saveSet("forks:keptWant", state.keptWant); renderKept(); });
+function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", state.keptWant); renderKept(); }
 
 (async () => {
   // Arriving from a magic link?
