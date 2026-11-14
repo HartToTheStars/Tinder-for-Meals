@@ -10,9 +10,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=13" />
+<link rel="stylesheet" href="styles.css?v=14" />
 </head>
-<body>
+<body class="home">
 <div class="app">
   <header class="top">
     <h1 class="logo"><button id="logoBtn" aria-label="forks, back to swiping">forks<span>.</span></button></h1>
@@ -28,25 +28,29 @@
   <main>
     <!-- SWIPE -->
     <section class="view view-swipe is-active" id="view-swipe">
-      <div class="cats" id="cats" role="radiogroup" aria-label="Filter by course"></div>
-      <div class="tags" id="tags" role="group" aria-label="Dietary and lifestyle filters"></div>
-      <div class="deck" id="deck" aria-live="polite">
-        <div class="deck-msg" id="deckMsg">
-          <div class="spinner"></div>
-          <p>Setting the table…</p>
+      <div class="ambient" id="ambient" aria-hidden="true"></div>
+      <div class="stage">
+        <div class="cats" id="cats" role="radiogroup" aria-label="Filter by course"></div>
+        <div class="tags" id="tags" role="group" aria-label="Dietary and lifestyle filters"></div>
+        <div class="deck" id="deck" aria-live="polite">
+          <div class="deck-msg" id="deckMsg">
+            <div class="spinner"></div>
+            <p>Setting the table…</p>
+          </div>
         </div>
+        <div class="actions">
+          <button class="act act-undo" id="btnUndo" aria-label="Undo" title="Undo (⌫)" data-key="⌫" disabled></button>
+          <button class="act act-nope" id="btnNope" aria-label="Pass" title="Pass (←)" data-key="←"></button>
+          <button class="act act-like" id="btnLike" aria-label="Keep" title="Keep (→)" data-key="→"></button>
+          <a class="act act-open" id="btnOpen" aria-label="Open recipe" title="Open recipe (↑)" data-key="↑" target="_blank" rel="noopener"></a>
+        </div>
+        <p class="hint">Drag, or use ← → keys</p>
       </div>
-      <div class="actions">
-        <button class="act act-undo" id="btnUndo" aria-label="Undo" title="Undo (⌫)" disabled></button>
-        <button class="act act-nope" id="btnNope" aria-label="Pass" title="Pass (←)"></button>
-        <button class="act act-like" id="btnLike" aria-label="Keep" title="Keep (→)"></button>
-        <a class="act act-open" id="btnOpen" aria-label="Open recipe" title="Open recipe (↑)" target="_blank" rel="noopener"></a>
-      </div>
-      <p class="hint">Drag, or use ← → keys</p>
     </section>
 
     <!-- KEPT -->
     <section class="view view-kept" id="view-kept">
+      <div class="side-head"><h2>Your keeps</h2><span class="count" id="keptCount2">0</span></div>
       <div class="cats" id="keptCats" role="radiogroup" aria-label="Filter keepers by course"></div>
       <div class="tags" id="keptTags" role="group" aria-label="Filter keepers by diet and lifestyle"></div>
       <div class="search">
@@ -110,6 +114,6 @@
 
 <div class="toast" id="toast" role="status"></div>
 
-<script type="module" src="app.js?v=13"></script>
+<script type="module" src="app.js?v=14"></script>
 </body>
 </html>

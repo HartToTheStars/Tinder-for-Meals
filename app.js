@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=13";
+import { icon } from "./icons.js?v=14";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -224,6 +224,12 @@ function render() {
   if (top) { bindDrag(top); maybeTeach(top); }
   const cur = state.deck[state.deck.length - 1];
   $("#btnOpen").href = cur ? cur.url : "#";
+  // Desktop: the stage glows with a blur of the top card's photo.
+  const amb = $("#ambient");
+  if (cur?.image && amb.dataset.src !== cur.image) {
+    amb.dataset.src = cur.image;
+    amb.style.backgroundImage = `url("${cur.image.replace(/"/g, "%22")}")`;
+  }
   $("#btnUndo").disabled = state.history.length === 0;
 
   if (!state.deck.length) {
@@ -354,6 +360,7 @@ async function swipe(liked, evt) {
     const rect = btn.getBoundingClientRect();
     hearts(evt?.clientX ?? rect.left + rect.width / 2, evt?.clientY ?? rect.top);
     state.kept.unshift({ ...recipe, swiped_at: new Date().toISOString() });
+    state.freshId = recipe.id; // flashes in the desktop sidebar
     updateCount(true);
     renderKept();
   }
@@ -422,9 +429,10 @@ async function loadKept() {
 }
 
 function updateCount(bump) {
-  const c = $("#keptCount");
-  c.textContent = state.kept.length;
-  if (bump) { c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
+  for (const c of [$("#keptCount"), $("#keptCount2")]) {
+    c.textContent = state.kept.length;
+    if (bump) { c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
+  }
 }
 
 const norm = (s = "") => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -465,7 +473,7 @@ function renderKept() {
   $("#list").innerHTML = rows.map((r, i) => {
     const t = tagIcons(r, 4);
     return `
-    <li class="item" data-id="${r.id}" style="animation-delay:${Math.min(i, 12) * 20}ms">
+    <li class="item${r.id === state.freshId ? " fresh" : ""}" data-id="${r.id}" style="animation-delay:${r.id === state.freshId ? 0 : Math.min(i, 12) * 20}ms">
       <img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" />
       <a href="${esc(r.url)}" target="_blank" rel="noopener">
         <h4>${highlight(r.title, state.query.split(/\s+/).filter(Boolean))}</h4>
@@ -474,6 +482,7 @@ function renderKept() {
       <button class="rm" aria-label="Remove ${esc(r.title)}" title="Remove">${icon("x")}</button>
     </li>`;
   }).join("");
+  state.freshId = null;
 
   const empty = $("#keptEmpty");
   empty.hidden = rows.length > 0;
@@ -757,6 +766,7 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "/") { e.preventDefault(); $("#search").focus(); }
     return;
   }
+  if (e.key.startsWith("Arrow")) e.preventDefault(); // arrows swipe, never scroll
   if (e.key === "ArrowRight") swipe(true);
   else if (e.key === "ArrowLeft") swipe(false);
   else if (e.key === "ArrowUp") { const r = state.deck.at(-1); if (r) window.open(r.url, "_blank", "noopener"); }
