@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=19";
+import { icon } from "./icons.js?v=20";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -153,11 +153,15 @@ function renderTagRow(el, selected, onToggle, only = el._only ?? null) {
   const shown = TAGS.filter(([k]) => !only || only.has(k) || selected.has(k));
   el.hidden = !shown.length;
   el.innerHTML = shown.map(([k, ic, l]) =>
-    `<button class="tag ${selected.has(k) ? "is-on" : ""}" data-tag="${k}" aria-pressed="${selected.has(k)}">${tick}${icon(ic, "ti")}${l}</button>`).join("") +
+    `<button class="tag ${selected.has(k) ? "is-on" : ""}${k === el._just ? " just" : ""}" data-tag="${k}" aria-pressed="${selected.has(k)}">${tick}${icon(ic, "ti")}${l}</button>`).join("") +
     (selected.size ? `<button class="tag clear" data-tag="__clear">Clear</button>` : "");
   el.onclick = (e) => {
     const b = e.target.closest(".tag");
     if (!b) return;
+    // Only the filter just tapped gets the hop, not every one already on.
+    el._just = b.dataset.tag;
+    clearTimeout(el._justT);
+    el._justT = setTimeout(() => { el._just = null; }, 600);
     if (b.dataset.tag === "__clear") selected.clear();
     else selected.has(b.dataset.tag) ? selected.delete(b.dataset.tag) : selected.add(b.dataset.tag);
     renderTagRow(el, selected, onToggle);

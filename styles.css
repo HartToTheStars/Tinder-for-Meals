@@ -97,7 +97,9 @@ main { flex: 1; display: flex; flex-direction: column; }
 .tag .tick svg { width: 12px; height: 12px; stroke-width: 3; }
 .tag.is-on { background: rgb(63 155 107 / .14); color: var(--basil); box-shadow: inset 0 0 0 1.5px var(--basil); font-weight: 600; }
 .tag.is-on .tick { width: 12px; }
-.tag.is-on .ti { animation: hop .45s cubic-bezier(.3,1.6,.5,1); }
+.tag.is-on.just .ti { animation: hop .45s cubic-bezier(.3,1.6,.5,1); }
+.tag.is-on.just .tick { animation: tickin .2s ease; }
+@keyframes tickin { from { width: 0; } }
 .tag.clear { color: var(--tomato); box-shadow: none; font-weight: 600; }
 .card-tags { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle; }
 .card-tags span svg { width: 14px; height: 14px; stroke-width: 2; }
