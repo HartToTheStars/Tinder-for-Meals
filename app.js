@@ -102,7 +102,7 @@ function render() {
   deckEl.querySelectorAll(".card.gone").forEach((g) => deckEl.insertBefore(g, deckEl.firstChild));
 
   const top = topCard();
-  if (top) bindDrag(top);
+  if (top) { bindDrag(top); maybeTeach(top); }
   const cur = state.deck[state.deck.length - 1];
   $("#btnOpen").href = cur ? cur.url : "#";
   $("#btnUndo").disabled = state.history.length === 0;
@@ -119,6 +119,34 @@ function render() {
 }
 
 const topCard = () => [...deckEl.querySelectorAll(".card:not(.gone)")].pop();
+
+// One-time intro: lean right (KEEP), then left (NOPE), then settle.
+let taught = false;
+function maybeTeach(el) {
+  if (taught || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  taught = true;
+  const like = el.querySelector(".stamp-like"), nope = el.querySelector(".stamp-nope");
+  const ease = { easing: "cubic-bezier(.45,0,.25,1)", fill: "forwards" };
+  const lean = (x, r) => `translate(${x}px, 0) rotate(${r}deg)`;
+  const card = el.animate([
+    { transform: lean(0, 0), offset: 0 },
+    { transform: lean(70, 6), offset: 0.22 },
+    { transform: lean(70, 6), offset: 0.38 },
+    { transform: lean(-70, -6), offset: 0.62 },
+    { transform: lean(-70, -6), offset: 0.78 },
+    { transform: lean(0, 0), offset: 1 },
+  ], { duration: 2600, delay: 700, ...ease });
+  const fade = (stamp, a, b, c, d) => stamp.animate([
+    { opacity: 0, offset: 0 }, { opacity: 0, offset: a }, { opacity: 0.9, offset: b },
+    { opacity: 0.9, offset: c }, { opacity: 0, offset: d }, { opacity: 0, offset: 1 },
+  ], { duration: 2600, delay: 700, fill: "forwards" });
+  const anims = [card, fade(like, 0.05, 0.22, 0.38, 0.5), fade(nope, 0.5, 0.62, 0.78, 0.92)];
+  const stop = () => anims.forEach((a) => a.cancel());
+  card.finished.then(stop).catch(() => {});
+  el.addEventListener("pointerdown", stop, { once: true });
+  document.addEventListener("keydown", stop, { once: true });
+  el._stopTeach = stop;
+}
 
 function bindDrag(el) {
   if (el._bound) return;
@@ -158,6 +186,7 @@ async function swipe(liked, evt) {
   const recipe = state.deck[state.deck.length - 1];
   if (!el || !recipe) return;
 
+  el._stopTeach?.();
   el.classList.add("gone");
   el.querySelector(liked ? ".stamp-like" : ".stamp-nope").style.opacity = 1;
   const w = window.innerWidth;
