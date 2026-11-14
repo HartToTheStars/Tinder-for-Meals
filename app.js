@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=29";
+import { icon } from "./icons.js?v=30";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -199,7 +199,7 @@ function keptByHTML(r) {
   if (k.people.length) {
     const p = k.people[0];
     const more = k.people.length > 1 ? ` + ${k.people.length - 1}` : "";
-    return `<button class="kept-by" data-handle="${esc(p.handle)}">${avatar(p.name, "xs")}${esc(p.name)}${more} kept this</button>`;
+    return `<button class="kept-by" data-handle="${esc(p.handle)}">${avatar(p.name, "xs", p.color)}${esc(p.name)}${more} kept this</button>`;
   }
   return k.total >= 3 ? `<span class="kept-by quiet">${icon("users")}Kept by ${k.total} people</span>` : "";
 }
@@ -813,11 +813,13 @@ async function loadPeople() {
   const { data } = await db.rpc("meals_people", { p_ids: state.user ? [] : [...state.follows] });
   state.people = data || [];
   if (state.people.length) {
-    try {
-      const { data: colors } = await db.from("meals_profiles").select("user_id,color").in("user_id", state.people.map((p) => p.user_id));
-      const c = new Map((colors || []).map((x) => [x.user_id, x.color]));
-      state.people.forEach((p) => { p.color = c.get(p.user_id) || null; });
-    } catch (e) { console.error(e); }
+    // Colors come from each name card (works for unlisted profiles you follow, too).
+    await Promise.all(state.people.map(async (p) => {
+      try {
+        const { data: card } = await db.rpc("meals_profile_card", { p_handle: p.handle });
+        p.color = card?.[0]?.color || null;
+      } catch (e) { console.error(e); }
+    }));
   }
   state.featured = state.people.filter((p) => p.is_featured);
   renderFeatured();
@@ -874,12 +876,13 @@ let peopleList = [], peopleProfile = null;
 async function profileFor(handle) {
   const f = state.people.find((p) => p.handle === handle);
   if (f) return f;
-  const { data } = await db.from("meals_profiles").select("user_id,handle,name,color").eq("handle", handle).maybeSingle();
-  return data;
+  // Unlisted profiles resolve by handle: whoever has the link can see the name and follow.
+  const { data } = await db.rpc("meals_profile_card", { p_handle: handle });
+  return data?.[0] || null;
 }
 async function openPeople(handle) {
   peopleProfile = await profileFor(handle);
-  if (!peopleProfile) return toast("That list is private");
+  if (!peopleProfile) return toast("Couldn't find that list");
   const { data } = await db.rpc("meals_public_keeps", { p_handle: handle });
   peopleList = (data || []).filter((r) => !JUNK.test(r.title)).map(clean);
   $("#peopleAvatar").outerHTML = avatar(peopleProfile.name, "", peopleProfile.color).replace('class="avatar ', 'id="peopleAvatar" class="avatar ');
