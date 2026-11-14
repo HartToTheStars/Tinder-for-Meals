@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=22";
+import { icon } from "./icons.js?v=25";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -189,7 +189,10 @@ async function attachKeptBy(recipes) {
   const by = new Map((data || []).map((d) => [d.recipe_id, d]));
   recipes.forEach((r) => { const d = by.get(r.id); if (d) r.keptBy = { total: Number(d.total), people: d.people || [] }; });
 }
-const avatar = (name, cls = "") => `<span class="avatar ${cls}" style="--h:${[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360}">${esc(name.charAt(0).toUpperCase())}</span>`;
+const BRAND = ["#e8553e", "#3f9b6b", "#d9962f", "#9b5a7a", "#7d8b3a", "#c8693f"];
+const colorFor = (name) => BRAND[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % BRAND.length];
+const avatar = (name, cls = "", color = null) =>
+  `<span class="avatar ${cls}" style="background:${esc(color || colorFor(name))}">${esc(name.charAt(0).toUpperCase())}</span>`;
 function keptByHTML(r) {
   const k = r.keptBy;
   if (!k) return "";
@@ -371,7 +374,7 @@ function bindDrag(el) {
   el.addEventListener("pointercancel", end);
 }
 
-const sheetOpen = () => ["#break", "#save", "#acct", "#people", "#landing"].some((s) => !$(s).hidden);
+const sheetOpen = () => ["#break", "#save", "#acct", "#people", "#landing", "#nameSheet"].some((s) => !$(s).hidden);
 
 async function swipe(liked, evt) {
   const el = topCard();
@@ -495,7 +498,7 @@ function renderKept() {
     b.hidden = !n && !on;
     if (!b.hidden) shownCats++;
     b.setAttribute("aria-checked", on);
-    b.querySelector(".cat-n").textContent = b.dataset.cat && n ? n : "";
+    b.querySelector(".cat-n").textContent = "";
   });
   $("#keptCats").hidden = !has;
   $("#keptCats").style.gridTemplateColumns = `repeat(${Math.max(shownCats, 1)}, 1fr)`;
@@ -608,7 +611,7 @@ function closeSheet(sel, then) {
   s.classList.add("closing");
   setTimeout(() => { s.hidden = true; s.classList.remove("closing"); then?.(); }, 230);
 }
-["#break", "#save", "#acct", "#people", "#landing"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+["#break", "#save", "#acct", "#people", "#landing", "#nameSheet"].forEach((sel) => $(sel).addEventListener("click", (e) => {
   if (e.target !== $(sel)) return;
   if (sel === "#break") $("#breakGo").click();
   else if (sel === "#save") skipSave();
@@ -744,6 +747,8 @@ $("#saveForm").addEventListener("submit", async (e) => {
 $("#acctBtn").addEventListener("click", () => {
   if (!state.user) return openSave("manual");
   $("#acctSheetIcon").innerHTML = icon("circle-user-round");
+  if (state.me?.name) $("#acctSheetIcon").innerHTML = avatar(state.me.name, "xl", state.me.color);
+  $("#acctTitle").textContent = state.me?.name ? `Hi, ${state.me.name}` : "You're signed in";
   $("#acctText").textContent = `${state.user.email}. Your keeps are saved to your account.`;
   openSheet("#acct");
 });
@@ -776,6 +781,10 @@ $("#acctOut").addEventListener("click", async () => {
 });
 function updateAcct() {
   $("#acctBtn").classList.toggle("is-in", !!state.user);
+  // Once they've told us their name, their initial (in their color) is the profile picture.
+  const me = state.user && state.me?.name ? state.me : null;
+  $("#acctBtn").classList.toggle("has-avatar", !!me);
+  $("#acctIcon").innerHTML = me ? avatar(me.name, "hd", me.color) : icon("circle-user-round");
   $("#acctBtn").setAttribute("aria-label", state.user ? `Signed in as ${state.user.email}` : "Save your keeps");
   $("#acctDot").hidden = !!state.user || !guest.kept.length;
 }
@@ -803,6 +812,13 @@ const GUEST_FOLLOWS = "forks:follows";
 async function loadPeople() {
   const { data } = await db.rpc("meals_people", { p_ids: state.user ? [] : [...state.follows] });
   state.people = data || [];
+  if (state.people.length) {
+    try {
+      const { data: colors } = await db.from("meals_profiles").select("user_id,color").in("user_id", state.people.map((p) => p.user_id));
+      const c = new Map((colors || []).map((x) => [x.user_id, x.color]));
+      state.people.forEach((p) => { p.color = c.get(p.user_id) || null; });
+    } catch (e) { console.error(e); }
+  }
   state.featured = state.people.filter((p) => p.is_featured);
   renderFeatured();
 }
@@ -816,7 +832,7 @@ async function loadSocial() {
     }
     const { data } = await db.from("meals_follows").select("followee");
     state.follows = new Set((data || []).map((d) => d.followee));
-    const { data: me } = await db.from("meals_profiles").select("handle,name").eq("user_id", state.user.id).maybeSingle();
+    const { data: me } = await db.from("meals_profiles").select("handle,name,color").eq("user_id", state.user.id).maybeSingle();
     state.me = me || null;
   } else {
     state.follows = new Set(ls.get(GUEST_FOLLOWS, []));
@@ -842,7 +858,7 @@ function renderFeatured() {
     const on = state.follows.has(p.user_id);
     return `
     <button class="story ${on ? "is-on" : ""}" data-handle="${esc(p.handle)}" aria-label="${esc(p.name)}'s keeps, ${p.keeps} recipes${on ? ", following" : ""}">
-      <span class="story-ring">${avatar(p.name, "lg")}${on ? `<i class="story-check">${icon("check")}</i>` : ""}</span>
+      <span class="story-ring">${avatar(p.name, "lg", p.color)}${on ? `<i class="story-check">${icon("check")}</i>` : ""}</span>
       <b>${esc(p.name)}</b>
       <small>${p.keeps} keep${Number(p.keeps) === 1 ? "" : "s"}</small>
     </button>`;
@@ -858,7 +874,7 @@ let peopleList = [], peopleProfile = null;
 async function profileFor(handle) {
   const f = state.people.find((p) => p.handle === handle);
   if (f) return f;
-  const { data } = await db.from("meals_profiles").select("user_id,handle,name").eq("handle", handle).maybeSingle();
+  const { data } = await db.from("meals_profiles").select("user_id,handle,name,color").eq("handle", handle).maybeSingle();
   return data;
 }
 async function openPeople(handle) {
@@ -866,7 +882,7 @@ async function openPeople(handle) {
   if (!peopleProfile) return toast("That list is private");
   const { data } = await db.rpc("meals_public_keeps", { p_handle: handle });
   peopleList = (data || []).filter((r) => !JUNK.test(r.title)).map(clean);
-  $("#peopleAvatar").outerHTML = avatar(peopleProfile.name).replace('class="avatar ', 'id="peopleAvatar" class="avatar ');
+  $("#peopleAvatar").outerHTML = avatar(peopleProfile.name, "", peopleProfile.color).replace('class="avatar ', 'id="peopleAvatar" class="avatar ');
   $("#peopleName").textContent = `${peopleProfile.name}'s keeps`;
   $("#peopleCount").textContent = `${peopleList.length} recipe${peopleList.length === 1 ? "" : "s"}`;
   renderPeople();
@@ -913,9 +929,18 @@ $("#peopleList").addEventListener("click", async (e) => {
 $("#peopleClose").addEventListener("click", () => closeSheet("#people"));
 
 // Share a keep: the link opens a landing page that shows the recipe and invites them to swipe.
+// Recipes with a pre-rendered preview get a /s/<id>/ link (rich preview in iMessage, Slack, etc.).
+let ogIds = null;
+async function hasPreview(id) {
+  if (!ogIds) ogIds = fetch("og/index.json").then((r) => (r.ok ? r.json() : [])).then((a) => new Set(a)).catch(() => new Set());
+  return (await ogIds).has(id);
+}
 async function shareRecipe(r) {
   if (!r) return;
-  const url = `${location.origin}/?r=${r.id}${state.me ? `&by=${encodeURIComponent(state.me.handle)}` : ""}`;
+  const by = state.me ? `${encodeURIComponent(state.me.handle)}` : "";
+  const url = (await hasPreview(r.id))
+    ? `${location.origin}/s/${r.id}/${by ? `?by=${by}` : ""}`
+    : `${location.origin}/?r=${r.id}${by ? `&by=${by}` : ""}`;
   const text = `${r.title}. Found it on forks, swipe right on dinner.`;
   try {
     if (navigator.share) { await navigator.share({ title: r.title, text, url }); return; }
@@ -933,7 +958,7 @@ async function showLanding(id, byHandle) {
   const by = byHandle ? await profileFor(byHandle) : null;
   const followTarget = by || state.featured[0] || null;
   landing = { recipe, followTarget };
-  $("#landFrom").textContent = by ? `${by.name} thinks you'll love this` : "Someone thinks you'll love this";
+  $("#landFrom").innerHTML = `${esc(by ? by.name : "Someone")} thinks<br>you'll love this`;
   $("#landImg").src = recipe.image;
   $("#landCard").href = recipe.url;
   $("#landSource").textContent = recipe.source;
@@ -941,7 +966,7 @@ async function showLanding(id, byHandle) {
   const showFollow = followTarget && !state.follows.has(followTarget.user_id) && followTarget.user_id !== state.user?.id;
   $("#landFollowRow").hidden = !showFollow;
   if (showFollow) {
-    $("#landAvatar").outerHTML = avatar(followTarget.name, "sm").replace('class="avatar ', 'id="landAvatar" class="avatar ');
+    $("#landAvatar").outerHTML = avatar(followTarget.name, "sm", followTarget.color).replace('class="avatar ', 'id="landAvatar" class="avatar ');
     $("#landFollowText").textContent = `Also follow ${followTarget.name}'s keeps`;
   }
   openSheet("#landing");
@@ -960,6 +985,40 @@ $("#landGo").addEventListener("click", async () => {
   }
   show("swipe");
   closeSheet("#landing", () => toast(follow ? `Following ${followTarget.name}. Swipe away` : "Swipe away"));
+});
+
+// ---------- first name (asked once, on first sign-in) ----------
+function askName() {
+  if (!state.user || state.me?.name || !$("#nameSheet").hidden) return;
+  if (ls.get(`forks:nameLater:${state.user.id}`, false)) return;
+  $("#nameErr").hidden = true;
+  $("#nameInput").value = "";
+  pickedColor = BRAND[Math.floor(Math.random() * BRAND.length)]; // random brand color, kept on save
+  previewName();
+  openSheet("#nameSheet");
+  setTimeout(() => $("#nameInput").focus(), 300);
+}
+let pickedColor = null;
+function previewName() {
+  const v = $("#nameInput").value.trim();
+  $("#namePreview").innerHTML = v ? avatar(v, "xl", pickedColor) : `<span class="avatar xl blank">${icon("circle-user-round")}</span>`;
+}
+$("#nameInput").addEventListener("input", previewName);
+$("#nameForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = $("#nameInput").value.trim();
+  if (!name) { $("#nameErr").textContent = "Add your first name, or tap Later."; $("#nameErr").hidden = false; return; }
+  $("#nameGo").classList.add("is-busy");
+  const { data, error } = await db.rpc("meals_save_name", { p_name: name, p_color: pickedColor });
+  $("#nameGo").classList.remove("is-busy");
+  if (error) { $("#nameErr").textContent = "Couldn't save that. Try again?"; $("#nameErr").hidden = false; return; }
+  state.me = data;
+  updateAcct();
+  closeSheet("#nameSheet", () => toast(`Hi, ${data.name}`));
+});
+$("#nameSkip").addEventListener("click", () => {
+  if (state.user) ls.set(`forks:nameLater:${state.user.id}`, true);
+  closeSheet("#nameSheet");
 });
 
 // ---------- tabs & keys ----------
@@ -986,6 +1045,7 @@ document.addEventListener("keydown", (e) => {
   if (!$("#acct").hidden) { if (e.key === "Escape") closeSheet("#acct"); return; }
   if (!$("#people").hidden) { if (e.key === "Escape") closeSheet("#people"); return; }
   if (!$("#landing").hidden) { if (e.key === "Escape" || e.key === "Enter") $("#landGo").click(); return; }
+  if (!$("#nameSheet").hidden) { if (e.key === "Escape") closeSheet("#nameSheet"); return; }
   if (e.target.matches("input")) { if (e.key === "Escape") e.target.blur(); return; }
   if (!$("#view-swipe").classList.contains("is-active")) {
     if (e.key === "/") { e.preventDefault(); $("#search").focus(); }
@@ -1035,6 +1095,7 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   }
   const { data } = await db.auth.getSession();
   await setUser(data.session?.user ?? null, { merge });
+  if (state.user) setTimeout(askName, merge ? 1200 : 400);
   if (!state.user) { await loadSocial(); await loadKept(); refill(); }
   // Arriving from a shared recipe?
   if (shared && /^[0-9a-f-]{36}$/i.test(shared)) showLanding(shared, sharedBy && /^[a-z0-9_]{2,24}$/i.test(sharedBy) ? sharedBy.toLowerCase() : null);

@@ -23,3 +23,6 @@ Every 10 swipes the app calls `meals_refine()`, which recomputes `meals_taste`: 
 - `meals-auth` sends magic links via Resend (secret `RESEND_API_KEY`, sender hello@forkslist.com). New email: account is created and guest swipes are saved immediately. Existing email: a sign-in link is sent; guest swipes merge after the link is opened.
 - Links land on `/?login=<token_hash>`; the app calls `verifyOtp` and merges any guest swipes.
 - Swipes are per user in `meals_user_swipes` (RLS: own rows only). The old shared `meals_swipes` table is kept as a closed backup; its rows were copied to Kelly.
+
+## Share previews
+`tools/og/render.js` renders 1200x630 preview images (og/<id>.jpg, og/site.jpg) with headless Chromium and writes a share page per recipe at s/<id>/index.html with Open Graph tags. Re-run it after a harvest to cover new recipes, then publish with `python3 tools/publish.py`. Recipes without a page share as /?r=<id> (generic site preview).
