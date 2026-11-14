@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=27";
+import { icon } from "./icons.js?v=28";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -748,7 +748,7 @@ $("#acctBtn").addEventListener("click", () => {
   if (!state.user) return openSave("manual");
   $("#acctSheetIcon").innerHTML = icon("circle-user-round");
   if (state.me?.name) $("#acctSheetIcon").innerHTML = avatar(state.me.name, "xl", state.me.color);
-  $("#acctTitle").textContent = state.me?.name ? `Hi, ${state.me.name}` : "You're signed in";
+  $("#acctTitle").textContent = state.me?.name ? `Hi ${state.me.name}` : "You're signed in";
   $("#acctText").textContent = `${state.user.email}. Your keeps are saved to your account.`;
   openSheet("#acct");
 });
@@ -1019,7 +1019,7 @@ $("#nameForm").addEventListener("submit", async (e) => {
   if (error) { $("#nameErr").textContent = "Couldn't save that. Try again?"; $("#nameErr").hidden = false; return; }
   state.me = data;
   updateAcct();
-  closeSheet("#nameSheet", () => toast(`Hi, ${data.name}`));
+  closeSheet("#nameSheet", () => toast(`Hi ${data.name}`));
 });
 $("#nameSkip").addEventListener("click", () => {
   if (state.user) ls.set(`forks:nameLater:${state.user.id}`, true);
