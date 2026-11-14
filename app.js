@@ -89,7 +89,7 @@ const guestIds = () => {
 const store = {
   async swipe(recipe, liked) {
     if (state.user) {
-      const { error } = await db.from("meals_swipes").upsert(
+      const { error } = await db.from("meals_user_swipes").upsert(
         { user_id: state.user.id, recipe_id: recipe.id, liked, swiped_at: new Date().toISOString() },
         { onConflict: "user_id,recipe_id" });
       return error;
@@ -100,14 +100,14 @@ const store = {
     return null;
   },
   async unswipe(id) {
-    if (state.user) return (await db.from("meals_swipes").delete().eq("recipe_id", id)).error;
+    if (state.user) return (await db.from("meals_user_swipes").delete().eq("recipe_id", id)).error;
     delete guest.swipes[id];
     guest.kept = guest.kept.filter((r) => r.id !== id);
     saveGuest();
     return null;
   },
   async unkeep(id) {
-    if (state.user) return (await db.from("meals_swipes").update({ liked: false }).eq("recipe_id", id)).error;
+    if (state.user) return (await db.from("meals_user_swipes").update({ liked: false }).eq("recipe_id", id)).error;
     guest.swipes[id] = false;
     guest.kept = guest.kept.filter((r) => r.id !== id);
     saveGuest();
@@ -115,7 +115,7 @@ const store = {
   },
   async kept() {
     if (!state.user) return guest.kept.map(clean);
-    const { data, error } = await db.from("meals_swipes")
+    const { data, error } = await db.from("meals_user_swipes")
       .select("swiped_at, recipe:meals_recipes(*)").eq("liked", true).order("swiped_at", { ascending: false });
     if (error) { console.error(error); return state.kept; }
     return data.filter((d) => d.recipe).map((d) => clean({ ...d.recipe, swiped_at: d.swiped_at }));
@@ -127,7 +127,7 @@ async function mergeGuest() {
   const entries = Object.entries(guest.swipes);
   if (!state.user || !entries.length) return 0;
   const rows = entries.map(([recipe_id, liked]) => ({ user_id: state.user.id, recipe_id, liked }));
-  const { error } = await db.from("meals_swipes").upsert(rows, { onConflict: "user_id,recipe_id", ignoreDuplicates: true });
+  const { error } = await db.from("meals_user_swipes").upsert(rows, { onConflict: "user_id,recipe_id", ignoreDuplicates: true });
   if (error) { console.error(error); return 0; }
   guest = { swipes: {}, kept: [] };
   ls.del(GUEST);

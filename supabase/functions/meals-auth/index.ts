@@ -2,11 +2,11 @@
 // POST { email, origin, guest?: { liked: uuid[], noped: uuid[] } }
 // - New email: creates the account, saves the guest's swipes to it, emails a "your keeps are saved" link.
 // - Existing email: emails a sign-in link. Guest swipes merge client-side after they sign in.
-// Emails go out through Resend (secret RESEND_API_KEY; sender defaults to forks@timeboss.us, override with MAIL_FROM).
+// Emails go out through Resend (secret RESEND_API_KEY; sender hello@forkslist.com, override with MAIL_FROM).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
-const DEFAULT_ORIGIN = "https://humble-aura-cbq3.here.now";
-const ORIGIN_OK = /^(https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.here\.now|http:\/\/localhost(:\d+)?)$/i;
+const DEFAULT_ORIGIN = "https://forkslist.com";
+const ORIGIN_OK = /^(https:\/\/(www\.)?forkslist\.com|https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.here\.now|http:\/\/localhost(:\d+)?)$/i;
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const cors = {
   "access-control-allow-origin": "*",
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
   const origin = ORIGIN_OK.test(body.origin ?? "") ? body.origin! : DEFAULT_ORIGIN;
 
   const key = Deno.env.get("RESEND_API_KEY");
-  const from = Deno.env.get("MAIL_FROM") ?? "forks <forks@timeboss.us>";
+  const from = Deno.env.get("MAIL_FROM") ?? "forks <hello@forkslist.com>";
   if (!key || !from) return json({ error: "email_not_configured" }, 503);
 
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       ...liked.map((recipe_id) => ({ user_id: created.user.id, recipe_id, liked: true })),
       ...noped.map((recipe_id) => ({ user_id: created.user.id, recipe_id, liked: false })),
     ];
-    if (rows.length) await db.from("meals_swipes").upsert(rows, { onConflict: "user_id,recipe_id", ignoreDuplicates: true });
+    if (rows.length) await db.from("meals_user_swipes").upsert(rows, { onConflict: "user_id,recipe_id", ignoreDuplicates: true });
   }
 
   const { data: link, error: linkErr } = await db.auth.admin.generateLink({ type: "magiclink", email });

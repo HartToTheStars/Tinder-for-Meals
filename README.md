@@ -20,6 +20,6 @@ Every 10 swipes the app calls `meals_refine()`, which recomputes `meals_taste`: 
 ## Accounts
 - Guests swipe without signing in; their swipes live in `localStorage` (`forks:guest`) and are passed to `meals_deck` / `meals_taste_top` as `p_liked` / `p_noped`.
 - On the 3rd swipe (with at least one keep) guests are offered "Don't lose your keeps". "No thanks, just browsing" stops the prompt for good on that device.
-- `meals-auth` sends magic links via Resend (secrets `RESEND_API_KEY`, `MAIL_FROM`). New email: account is created and guest swipes are saved immediately. Existing email: a sign-in link is sent; guest swipes merge after the link is opened.
+- `meals-auth` sends magic links via Resend (secret `RESEND_API_KEY`, sender hello@forkslist.com). New email: account is created and guest swipes are saved immediately. Existing email: a sign-in link is sent; guest swipes merge after the link is opened.
 - Links land on `/?login=<token_hash>`; the app calls `verifyOtp` and merges any guest swipes.
-- Swipes are per user (`meals_swipes.user_id`, RLS: own rows only). Migration: `supabase/migrations/20261114_meals_multitenant.sql`.
+- Swipes are per user in `meals_user_swipes` (RLS: own rows only). The old shared `meals_swipes` table is kept as a closed backup; its rows were copied to Kelly.
