@@ -48,18 +48,23 @@ const recipeHTML = (r) => `<!doctype html><html><head>${BASE}<style>
   <div class="body"><span class="src">${esc(r.source)}</span><h1>${esc(r.title)}</h1></div>
 </body></html>`;
 
+// Site image: wordmark + tagline on the left; on the right, the app's swipe moment:
+// a stack of meal cards with the top one tilting right under the green KEEP mask.
 const siteHTML = (imgs) => `<!doctype html><html><head>${BASE}<style>
-  .left { position: absolute; left: 84px; top: 0; bottom: 0; width: 520px; display: flex; flex-direction: column; justify-content: center; }
+  .left { position: absolute; left: 84px; top: 0; bottom: 0; width: 470px; display: flex; flex-direction: column; justify-content: center; z-index: 5; }
   .big { font-size: 132px; line-height: .9; }
   .tl { font-family: Fraunces, serif; font-style: italic; font-weight: 600; font-size: 44px; margin-top: 18px; }
-  .sub { font-size: 25px; color: #8a7d72; margin-top: 22px; line-height: 1.4; max-width: 440px; }
-  .card { position: absolute; width: 290px; height: 400px; border-radius: 26px; overflow: hidden; border: 7px solid #fffdf9; box-shadow: 0 26px 50px rgba(42,33,28,.32); background: #e9dfd2; }
-  .card img { width: 100%; height: 100%; object-fit: cover; }
-  .heart { position: absolute; right: 70px; bottom: 54px; width: 76px; height: 76px; border-radius: 50%; background: #fffdf9; display: grid; place-items: center; box-shadow: 0 12px 30px rgba(42,33,28,.25); }
+  .card { position: absolute; border-radius: 26px; overflow: hidden; background: #e9dfd2; box-shadow: 0 26px 50px rgba(42,33,28,.30); }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .keep { position: absolute; inset: 0; background: rgba(108,214,150,.72); display: grid; place-items: center; }
+  .keep span { font-family: Fraunces, serif; font-weight: 700; color: #fff; font-size: 72px; border: 7px solid #fff; border-radius: 18px; padding: 2px 22px; transform: rotate(-10deg); }
 </style></head><body>
-  <div class="left"><div class="mark big">forks<i>.</i></div><div class="tl">meet your next meal.</div><div class="sub">Swipe right on recipes you love. Keep the good ones.</div></div>
-  ${imgs.slice(0, 3).map((src, i) => `<div class="card" style="left:${612 + i * 138}px; top:${92 + [0, 30, 6][i]}px; transform: rotate(${[-8, 5, -2][i]}deg); z-index:${i}"><img src="${esc(src)}" referrerpolicy="no-referrer"></div>`).join("")}
-  <div class="heart" style="z-index:9"><svg width="38" height="38" viewBox="0 0 24 24" fill="#3f9b6b"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></div>
+  <div class="left"><div class="mark big">forks<i>.</i></div><div class="tl">meet your next meal.</div></div>
+  <div class="card" style="left:640px; top:100px; width:330px; height:440px; transform:rotate(2deg) scale(.94); opacity:.8"><img src="${esc(imgs[2])}" referrerpolicy="no-referrer"></div>
+  <div class="card" style="left:630px; top:86px; width:340px; height:450px; transform:rotate(-1deg) scale(.97)"><img src="${esc(imgs[1])}" referrerpolicy="no-referrer"></div>
+  <div class="card" style="left:690px; top:70px; width:350px; height:470px; transform:rotate(8deg); z-index:3">
+    <img src="${esc(imgs[0])}" referrerpolicy="no-referrer"><div class="keep"><span>KEEP</span></div>
+  </div>
 </body></html>`;
 
 async function shoot(page, html, file) {
@@ -74,7 +79,7 @@ async function shoot(page, html, file) {
   // RECIPES_JSON lets you pass a pre-downloaded list (e.g. when Node can't reach the network directly).
   const raw = process.env.RECIPES_JSON
     ? JSON.parse(fs.readFileSync(process.env.RECIPES_JSON, "utf8"))
-    : await (await fetch(`${SUPABASE_URL}/rest/v1/meals_recipes?select=id,title,source,image&image=not.is.null`, { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } })).json();
+    : await (await fetch(`${SUPABASE_URL}/rest/v1/meals_recipes?select=id,title,source,image,category&image=not.is.null&is_roundup=is.false`, { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } })).json();
   const recipes = raw.filter((r) => !JUNK.test(r.title)).map((r) => ({ ...r, title: smartTitle(r.title), image: fixImg(r.image) }));
   const todo = recipes.filter((r) => ALL || !fs.existsSync(path.join(OUT, `${r.id}.jpg`)));
   console.log(`${recipes.length} recipes, ${todo.length} to render`);
@@ -82,9 +87,12 @@ async function shoot(page, html, file) {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
 
-  // Site image: three photogenic recipes that actually load.
+  // Site image: three mains (not desserts or drinks), preferring hearty dinners, from hosts that load reliably.
   const sitePage = await ctx.newPage();
-  const picks = recipes.filter((r) => /assets\.bonappetit|smittenkitchen|i0\.wp\.com/.test(r.image)).slice(0, 12).map((r) => r.image);
+  const mains = recipes.filter((r) => r.category === "main" && /assets\.bonappetit|smittenkitchen|i0\.wp\.com/.test(r.image));
+  const hearty = /steak|chicken|pasta|lasagna|salmon|shrimp|pork|tacos|curry|stew|chili|roast|meatballs|noodles|risotto|potatoes/i;
+  const picks = [...mains.filter((r) => hearty.test(r.title)), ...mains].map((r) => r.image)
+    .filter((v, i, a) => a.indexOf(v) === i).slice(0, 3);
   await shoot(sitePage, siteHTML(picks), path.join(OUT, "site.jpg"));
   console.log("site.jpg");
 
