@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=25";
+import { icon } from "./icons.js?v=26";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -958,7 +958,7 @@ async function showLanding(id, byHandle) {
   const by = byHandle ? await profileFor(byHandle) : null;
   const followTarget = by || state.featured[0] || null;
   landing = { recipe, followTarget };
-  $("#landFrom").innerHTML = `${esc(by ? by.name : "Someone")} thinks<br>you'll love this`;
+  $("#landFrom").innerHTML = `${esc(by ? by.name : "Someone")} thinks<br>you'll love this…`;
   $("#landImg").src = recipe.image;
   $("#landCard").href = recipe.url;
   $("#landSource").textContent = recipe.source;
