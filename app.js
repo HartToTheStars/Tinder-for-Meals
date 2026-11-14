@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=15";
+import { icon } from "./icons.js?v=16";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -777,7 +777,7 @@ document.addEventListener("keydown", (e) => {
 $("#btnUndo").innerHTML = icon("undo-2");
 $("#btnNope").innerHTML = icon("x");
 $("#btnLike").innerHTML = icon("heart");
-$("#btnOpen").innerHTML = icon("arrow-up-right");
+$("#btnOpen").innerHTML = icon("external-link");
 $("#acctIcon").innerHTML = icon("circle-user-round");
 $("#searchIcon").innerHTML = icon("search");
 $("#footHeart").innerHTML = icon("heart");
