@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=20" />
+<link rel="stylesheet" href="styles.css?v=21" />
 </head>
 <body class="home">
 <div class="app">
@@ -54,6 +54,7 @@
     <!-- KEPT -->
     <section class="view view-kept" id="view-kept">
       <div class="side-head"><h2>Your keeps</h2><span class="count" id="keptCount2" hidden>0</span></div>
+      <div class="featured" id="featured" hidden></div>
       <div class="cats" id="keptCats" role="radiogroup" aria-label="Filter keepers by course"></div>
       <div class="tags" id="keptTags" role="group" aria-label="Filter keepers by diet and lifestyle"></div>
       <div class="search">
@@ -115,8 +116,39 @@
   </div>
 </div>
 
+<!-- Someone's public list -->
+<div class="break" id="people" hidden>
+  <div class="break-sheet list-sheet" role="dialog" aria-modal="true" aria-labelledby="peopleName">
+    <div class="ls-head">
+      <span class="avatar" id="peopleAvatar"></span>
+      <div class="ls-who"><h3 id="peopleName"></h3><small id="peopleCount"></small></div>
+      <button class="follow" id="peopleFollow" type="button"></button>
+    </div>
+    <ul class="ls-list" id="peopleList"></ul>
+    <button class="break-stop" id="peopleClose" type="button">Close</button>
+  </div>
+</div>
+
+<!-- Share-link landing -->
+<div class="break" id="landing" hidden>
+  <div class="break-sheet land-sheet" role="dialog" aria-modal="true" aria-labelledby="landTitle">
+    <p class="land-from" id="landFrom"></p>
+    <a class="land-card" id="landCard" target="_blank" rel="noopener">
+      <img id="landImg" alt="" referrerpolicy="no-referrer" />
+      <span class="land-body"><span class="source" id="landSource"></span><span class="land-title" id="landTitle"></span></span>
+    </a>
+    <p class="land-pitch">forks is Tinder for dinner. Swipe right on recipes you love, left on the rest.</p>
+    <button class="btn break-go" id="landGo" type="button">Start swiping</button>
+    <label class="land-follow" id="landFollowRow">
+      <input type="checkbox" id="landFollow" checked />
+      <span class="avatar sm" id="landAvatar"></span>
+      <span id="landFollowText"></span>
+    </label>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status"></div>
 
-<script type="module" src="app.js?v=20"></script>
+<script type="module" src="app.js?v=21"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=20";
+import { icon } from "./icons.js?v=21";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -16,6 +16,7 @@ const deckMsg = $("#deckMsg");
 const state = {
   deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0,
   cat: "", keptCat: "", round: [], want: new Set(), keptWant: new Set(), user: null, ctaShown: false,
+  follows: new Set(), featured: [], me: null,
 };
 const BREAK_EVERY = 20;
 const REFINE_EVERY = 10;
@@ -176,7 +177,28 @@ async function fetchDeck() {
   const exclude = new Set([...state.deck.map((r) => r.id), ...state.history.map((h) => h.recipe.id)]);
   const { data, error } = await db.rpc("meals_deck", { n: 20, cat: state.cat || null, want: [...state.want], ...guestIds() });
   if (error) { console.error(error); return []; }
-  return data.filter((r) => !exclude.has(r.id) && !JUNK.test(r.title)).map(clean);
+  const recipes = data.filter((r) => !exclude.has(r.id) && !JUNK.test(r.title)).map(clean);
+  await attachKeptBy(recipes);
+  return recipes;
+}
+
+// "Kelly kept this" / "Kept by 12 people" on cards.
+async function attachKeptBy(recipes) {
+  if (!recipes.length) return;
+  const { data } = await db.rpc("meals_kept_by", { p_ids: recipes.map((r) => r.id), p_follows: state.user ? [] : [...state.follows] });
+  const by = new Map((data || []).map((d) => [d.recipe_id, d]));
+  recipes.forEach((r) => { const d = by.get(r.id); if (d) r.keptBy = { total: Number(d.total), people: d.people || [] }; });
+}
+const avatar = (name, cls = "") => `<span class="avatar ${cls}" style="--h:${[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % 360}">${esc(name.charAt(0).toUpperCase())}</span>`;
+function keptByHTML(r) {
+  const k = r.keptBy;
+  if (!k) return "";
+  if (k.people.length) {
+    const p = k.people[0];
+    const more = k.people.length > 1 ? ` + ${k.people.length - 1}` : "";
+    return `<button class="kept-by" data-handle="${esc(p.handle)}">${avatar(p.name, "xs")}${esc(p.name)}${more} kept this</button>`;
+  }
+  return k.total >= 3 ? `<span class="kept-by quiet">${icon("users")}Kept by ${k.total} people</span>` : "";
 }
 
 async function refill() {
@@ -199,6 +221,7 @@ function cardHTML(r) {
     <img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" draggable="false" />
     <div class="stamp stamp-like"><span>KEEP</span></div>
     <div class="stamp stamp-nope"><span>NOPE</span></div>
+    ${keptByHTML(r)}
     <div class="card-body">
       <span class="source">${esc(r.source)}</span>${t.length ? `<span class="card-tags">${t.map((k) => `<span title="${TAG[k].l}">${icon(TAG[k].i)}</span>`).join("")}</span>` : ""}
       <h2>${esc(r.title)}</h2>
@@ -315,11 +338,11 @@ function maybeTeach(el) {
 function bindDrag(el) {
   if (el._bound) return;
   el._bound = true;
-  let sx = 0, sy = 0, dx = 0, dy = 0, down = false;
+  let sx = 0, sy = 0, dx = 0, dy = 0, down = false, downOn = null;
   const like = el.querySelector(".stamp-like"), nope = el.querySelector(".stamp-nope");
   el.addEventListener("pointerdown", (e) => {
     if (el !== topCard()) return;
-    down = true; sx = e.clientX; sy = e.clientY; dx = dy = 0;
+    down = true; sx = e.clientX; sy = e.clientY; dx = dy = 0; downOn = e.target;
     el.setPointerCapture(e.pointerId);
     el.classList.add("dragging");
   });
@@ -337,13 +360,18 @@ function bindDrag(el) {
     const threshold = Math.min(110, el.offsetWidth * 0.28);
     if (dx > threshold) swipe(true, e);
     else if (dx < -threshold) swipe(false, e);
-    else { el.style.transform = ""; like.style.opacity = nope.style.opacity = 0; }
+    else {
+      el.style.transform = ""; like.style.opacity = nope.style.opacity = 0;
+      // A tap (not a drag) on "Kelly kept this" opens her list.
+      const pill = Math.abs(dx) < 6 && Math.abs(dy) < 6 && downOn?.closest?.(".kept-by[data-handle]");
+      if (pill) openPeople(pill.dataset.handle);
+    }
   };
   el.addEventListener("pointerup", end);
   el.addEventListener("pointercancel", end);
 }
 
-const sheetOpen = () => ["#break", "#save", "#acct"].some((s) => !$(s).hidden);
+const sheetOpen = () => ["#break", "#save", "#acct", "#people", "#landing"].some((s) => !$(s).hidden);
 
 async function swipe(liked, evt) {
   const el = topCard();
@@ -501,10 +529,12 @@ function renderKept() {
         <h4>${highlight(r.title, state.query.split(/\s+/).filter(Boolean))}</h4>
         <small>${esc(r.source)}${t.length ? `<span class="mini">${t.map((k) => `<span title="${TAG[k].l}">${icon(TAG[k].i)}</span>`).join("")}</span>` : ""}</small>
       </a>
+      <button class="sh" aria-label="Share ${esc(r.title)}" title="Share">${icon("share")}</button>
       <button class="rm" aria-label="Remove ${esc(r.title)}" title="Remove">${icon("x")}</button>
     </li>`;
   }).join("");
   state.freshId = null;
+  renderFeatured();
 
   const empty = $("#keptEmpty");
   empty.hidden = rows.length > 0;
@@ -525,6 +555,8 @@ function renderKept() {
 }
 
 $("#list").addEventListener("click", async (e) => {
+  const share = e.target.closest(".sh");
+  if (share) return shareRecipe(state.kept.find((r) => r.id === share.closest(".item").dataset.id));
   const btn = e.target.closest(".rm");
   if (!btn) return;
   const li = btn.closest(".item");
@@ -576,8 +608,12 @@ function closeSheet(sel, then) {
   s.classList.add("closing");
   setTimeout(() => { s.hidden = true; s.classList.remove("closing"); then?.(); }, 230);
 }
-["#break", "#save", "#acct"].forEach((sel) => $(sel).addEventListener("click", (e) => {
-  if (e.target === $(sel)) sel === "#break" ? $("#breakGo").click() : sel === "#save" ? skipSave() : closeSheet(sel);
+["#break", "#save", "#acct", "#people", "#landing"].forEach((sel) => $(sel).addEventListener("click", (e) => {
+  if (e.target !== $(sel)) return;
+  if (sel === "#break") $("#breakGo").click();
+  else if (sel === "#save") skipSave();
+  else if (sel === "#landing") $("#landGo").click();
+  else closeSheet(sel);
 }));
 
 // 20-swipe check-in
@@ -754,12 +790,178 @@ async function setUser(user, { merge = false } = {}) {
   }
   updateAcct();
   if (changed || merge) {
+    await loadSocial();
     state.history = [];
     state.round = [];
     await loadKept();
     reshuffle();
   }
 }
+
+// ---------- social: follows, featured lists, sharing ----------
+const GUEST_FOLLOWS = "forks:follows";
+async function loadSocial() {
+  const { data: featured } = await db.rpc("meals_featured");
+  state.featured = featured || [];
+  if (state.user) {
+    // Bring along anything followed as a guest.
+    const local = ls.get(GUEST_FOLLOWS, []);
+    if (local.length) {
+      await db.from("meals_follows").upsert(local.map((followee) => ({ follower: state.user.id, followee })), { onConflict: "follower,followee", ignoreDuplicates: true });
+      ls.del(GUEST_FOLLOWS);
+    }
+    const { data } = await db.from("meals_follows").select("followee");
+    state.follows = new Set((data || []).map((d) => d.followee));
+    const { data: me } = await db.from("meals_profiles").select("handle,name").eq("user_id", state.user.id).maybeSingle();
+    state.me = me || null;
+  } else {
+    state.follows = new Set(ls.get(GUEST_FOLLOWS, []));
+    state.me = null;
+  }
+  renderFeatured();
+}
+async function setFollow(userId, on) {
+  on ? state.follows.add(userId) : state.follows.delete(userId);
+  if (state.user) {
+    if (on) await db.from("meals_follows").upsert({ follower: state.user.id, followee: userId }, { onConflict: "follower,followee", ignoreDuplicates: true });
+    else await db.from("meals_follows").delete().eq("followee", userId);
+  } else ls.set(GUEST_FOLLOWS, [...state.follows]);
+  renderFeatured();
+}
+const followBtn = (on) => `${icon(on ? "user-check" : "user-plus")}<span>${on ? "Following" : "Follow"}</span>`;
+
+function renderFeatured() {
+  const el = $("#featured");
+  const list = state.featured.filter((p) => p.user_id !== state.user?.id);
+  el.hidden = !list.length;
+  el.innerHTML = list.map((p) => `
+    <div class="feat" data-handle="${esc(p.handle)}" role="button" tabindex="0">
+      ${avatar(p.name)}
+      <span class="feat-who"><b>${esc(p.name)}'s keeps</b><small>Featured list · ${p.keeps} recipes</small></span>
+      <button class="follow sm ${state.follows.has(p.user_id) ? "is-on" : ""}" data-follow="${p.user_id}" type="button">${followBtn(state.follows.has(p.user_id))}</button>
+    </div>`).join("");
+}
+$("#featured").addEventListener("click", (e) => {
+  const f = e.target.closest("[data-follow]");
+  if (f) {
+    const on = !state.follows.has(f.dataset.follow);
+    setFollow(f.dataset.follow, on);
+    const p = state.featured.find((x) => x.user_id === f.dataset.follow);
+    return toast(on ? `Following ${p?.name ?? "them"}` : "Unfollowed");
+  }
+  const row = e.target.closest(".feat");
+  if (row) openPeople(row.dataset.handle);
+});
+$("#featured").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.closest(".feat")) openPeople(e.target.closest(".feat").dataset.handle); });
+
+// Someone's public list, with a heart to keep any of their recipes.
+let peopleList = [], peopleProfile = null;
+async function profileFor(handle) {
+  const f = state.featured.find((p) => p.handle === handle);
+  if (f) return f;
+  const { data } = await db.from("meals_profiles").select("user_id,handle,name").eq("handle", handle).maybeSingle();
+  return data;
+}
+async function openPeople(handle) {
+  peopleProfile = await profileFor(handle);
+  if (!peopleProfile) return toast("That list is private");
+  const { data } = await db.rpc("meals_public_keeps", { p_handle: handle });
+  peopleList = (data || []).filter((r) => !JUNK.test(r.title)).map(clean);
+  $("#peopleAvatar").outerHTML = avatar(peopleProfile.name).replace('class="avatar ', 'id="peopleAvatar" class="avatar ');
+  $("#peopleName").textContent = `${peopleProfile.name}'s keeps`;
+  $("#peopleCount").textContent = `${peopleList.length} recipe${peopleList.length === 1 ? "" : "s"}`;
+  renderPeople();
+  openSheet("#people");
+}
+function renderPeople() {
+  const on = state.follows.has(peopleProfile.user_id);
+  const fb = $("#peopleFollow");
+  fb.hidden = peopleProfile.user_id === state.user?.id;
+  fb.className = `follow ${on ? "is-on" : ""}`;
+  fb.innerHTML = followBtn(on);
+  const mine = new Set(state.kept.map((r) => r.id));
+  $("#peopleList").innerHTML = peopleList.map((r) => `
+    <li data-id="${r.id}">
+      <img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" />
+      <a href="${esc(r.url)}" target="_blank" rel="noopener"><b>${esc(r.title)}</b><small>${esc(r.source)}</small></a>
+      <button class="keep ${mine.has(r.id) ? "is-on" : ""}" aria-label="${mine.has(r.id) ? "Kept" : "Keep"} ${esc(r.title)}">${icon("heart")}</button>
+    </li>`).join("");
+}
+$("#peopleFollow").addEventListener("click", async () => {
+  const on = !state.follows.has(peopleProfile.user_id);
+  await setFollow(peopleProfile.user_id, on);
+  renderPeople();
+  toast(on ? `Following ${peopleProfile.name}` : "Unfollowed");
+});
+$("#peopleList").addEventListener("click", async (e) => {
+  const b = e.target.closest(".keep");
+  if (!b) return;
+  const r = peopleList.find((x) => x.id === b.closest("li").dataset.id);
+  if (b.classList.contains("is-on")) {
+    await store.unkeep(r.id);
+    state.kept = state.kept.filter((x) => x.id !== r.id);
+  } else {
+    await store.swipe(r, true);
+    state.kept.unshift({ ...r, swiped_at: new Date().toISOString() });
+    state.freshId = r.id;
+    const rect = b.getBoundingClientRect();
+    hearts(rect.left + rect.width / 2, rect.top);
+  }
+  // Drop it from the deck if it was queued.
+  state.deck = state.deck.filter((x) => x.id !== r.id);
+  updateCount(true); renderKept(); renderPeople(); updateAcct(); render();
+});
+$("#peopleClose").addEventListener("click", () => closeSheet("#people"));
+
+// Share a keep: the link opens a landing page that shows the recipe and invites them to swipe.
+async function shareRecipe(r) {
+  if (!r) return;
+  const url = `${location.origin}/?r=${r.id}${state.me ? `&by=${encodeURIComponent(state.me.handle)}` : ""}`;
+  const text = `${r.title}. Found it on forks, swipe right on dinner.`;
+  try {
+    if (navigator.share) { await navigator.share({ title: r.title, text, url }); return; }
+  } catch (err) { if (err?.name === "AbortError") return; }
+  try { await navigator.clipboard.writeText(url); toast("Link copied"); }
+  catch { prompt("Copy this link", url); }
+}
+
+let landing = null;
+async function showLanding(id, byHandle) {
+  const { data } = await db.rpc("meals_recipe", { p_id: id });
+  const r = data?.[0];
+  if (!r) return;
+  const recipe = clean(r);
+  const by = byHandle ? await profileFor(byHandle) : null;
+  const followTarget = by || state.featured[0] || null;
+  landing = { recipe, followTarget };
+  $("#landFrom").textContent = by ? `${by.name} thinks you'll love this` : "Someone thinks you'll love this";
+  $("#landImg").src = recipe.image;
+  $("#landCard").href = recipe.url;
+  $("#landSource").textContent = recipe.source;
+  $("#landTitle").textContent = recipe.title;
+  const showFollow = followTarget && !state.follows.has(followTarget.user_id) && followTarget.user_id !== state.user?.id;
+  $("#landFollowRow").hidden = !showFollow;
+  if (showFollow) {
+    $("#landAvatar").outerHTML = avatar(followTarget.name, "sm").replace('class="avatar ', 'id="landAvatar" class="avatar ');
+    $("#landFollowText").textContent = `Also follow ${followTarget.name}'s keeps`;
+  }
+  openSheet("#landing");
+}
+$("#landGo").addEventListener("click", async () => {
+  const { recipe, followTarget } = landing;
+  const follow = !$("#landFollowRow").hidden && $("#landFollow").checked;
+  if (follow) await setFollow(followTarget.user_id, true);
+  // The shared recipe becomes the first card, unless they've already swiped it.
+  const seen = state.kept.some((k) => k.id === recipe.id) || guest.swipes[recipe.id] !== undefined;
+  if (!seen) {
+    await attachKeptBy([recipe]);
+    state.deck = state.deck.filter((x) => x.id !== recipe.id);
+    state.deck.push(recipe);
+    render();
+  }
+  show("swipe");
+  closeSheet("#landing", () => toast(follow ? `Following ${followTarget.name}. Swipe away` : "Swipe away"));
+});
 
 // ---------- tabs & keys ----------
 function show(view) {
@@ -783,6 +985,8 @@ document.addEventListener("keydown", (e) => {
   if (!$("#break").hidden) { if (e.key === "Escape") $("#breakGo").click(); return; }
   if (!$("#save").hidden) { if (e.key === "Escape") skipSave(); return; }
   if (!$("#acct").hidden) { if (e.key === "Escape") closeSheet("#acct"); return; }
+  if (!$("#people").hidden) { if (e.key === "Escape") closeSheet("#people"); return; }
+  if (!$("#landing").hidden) { if (e.key === "Escape" || e.key === "Enter") $("#landGo").click(); return; }
   if (e.target.matches("input")) { if (e.key === "Escape") e.target.blur(); return; }
   if (!$("#view-swipe").classList.contains("is-active")) {
     if (e.key === "/") { e.preventDefault(); $("#search").focus(); }
@@ -821,6 +1025,8 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   // Arriving from a magic link?
   const params = new URLSearchParams(location.search);
   const hash = params.get("login");
+  const shared = params.get("r"), sharedBy = params.get("by");
+  if (shared && !hash) history.replaceState(null, "", location.pathname);
   let merge = false;
   if (hash) {
     history.replaceState(null, "", location.pathname);
@@ -830,7 +1036,9 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   }
   const { data } = await db.auth.getSession();
   await setUser(data.session?.user ?? null, { merge });
-  if (!state.user) { await loadKept(); refill(); }
+  if (!state.user) { await loadSocial(); await loadKept(); refill(); }
+  // Arriving from a shared recipe?
+  if (shared && /^[0-9a-f-]{36}$/i.test(shared)) showLanding(shared, sharedBy && /^[a-z0-9_]{2,24}$/i.test(sharedBy) ? sharedBy.toLowerCase() : null);
   db.auth.onAuthStateChange((_evt, session) => {
     if ((session?.user?.id ?? null) !== (state.user?.id ?? null)) setUser(session?.user ?? null);
   });
