@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "./icons.js?v=21";
+import { icon } from "./icons.js?v=22";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -16,7 +16,7 @@ const deckMsg = $("#deckMsg");
 const state = {
   deck: [], kept: [], history: [], query: "", source: "All", busy: false, dry: false, sinceRefine: 0,
   cat: "", keptCat: "", round: [], want: new Set(), keptWant: new Set(), user: null, ctaShown: false,
-  follows: new Set(), featured: [], me: null,
+  follows: new Set(), featured: [], people: [], me: null,
 };
 const BREAK_EVERY = 20;
 const REFINE_EVERY = 10;
@@ -800,9 +800,13 @@ async function setUser(user, { merge = false } = {}) {
 
 // ---------- social: follows, featured lists, sharing ----------
 const GUEST_FOLLOWS = "forks:follows";
+async function loadPeople() {
+  const { data } = await db.rpc("meals_people", { p_ids: state.user ? [] : [...state.follows] });
+  state.people = data || [];
+  state.featured = state.people.filter((p) => p.is_featured);
+  renderFeatured();
+}
 async function loadSocial() {
-  const { data: featured } = await db.rpc("meals_featured");
-  state.featured = featured || [];
   if (state.user) {
     // Bring along anything followed as a guest.
     const local = ls.get(GUEST_FOLLOWS, []);
@@ -818,7 +822,7 @@ async function loadSocial() {
     state.follows = new Set(ls.get(GUEST_FOLLOWS, []));
     state.me = null;
   }
-  renderFeatured();
+  await loadPeople();
 }
 async function setFollow(userId, on) {
   on ? state.follows.add(userId) : state.follows.delete(userId);
@@ -826,38 +830,33 @@ async function setFollow(userId, on) {
     if (on) await db.from("meals_follows").upsert({ follower: state.user.id, followee: userId }, { onConflict: "follower,followee", ignoreDuplicates: true });
     else await db.from("meals_follows").delete().eq("followee", userId);
   } else ls.set(GUEST_FOLLOWS, [...state.follows]);
-  renderFeatured();
+  await loadPeople();
 }
 const followBtn = (on) => `${icon(on ? "user-check" : "user-plus")}<span>${on ? "Following" : "Follow"}</span>`;
 
+// "Others' keeps": story-style circles for the featured list and everyone you follow. Tap to open their list.
 function renderFeatured() {
-  const el = $("#featured");
-  const list = state.featured.filter((p) => p.user_id !== state.user?.id);
-  el.hidden = !list.length;
-  el.innerHTML = list.map((p) => `
-    <div class="feat" data-handle="${esc(p.handle)}" role="button" tabindex="0">
-      ${avatar(p.name)}
-      <span class="feat-who"><b>${esc(p.name)}'s keeps</b><small>Featured list · ${p.keeps} recipes</small></span>
-      <button class="follow sm ${state.follows.has(p.user_id) ? "is-on" : ""}" data-follow="${p.user_id}" type="button">${followBtn(state.follows.has(p.user_id))}</button>
-    </div>`).join("");
+  const list = (state.people || []).filter((p) => p.user_id !== state.user?.id);
+  $("#othersWrap").hidden = !list.length;
+  $("#featured").innerHTML = list.map((p) => {
+    const on = state.follows.has(p.user_id);
+    return `
+    <button class="story ${on ? "is-on" : ""}" data-handle="${esc(p.handle)}" aria-label="${esc(p.name)}'s keeps, ${p.keeps} recipes${on ? ", following" : ""}">
+      <span class="story-ring">${avatar(p.name, "lg")}${on ? `<i class="story-check">${icon("check")}</i>` : ""}</span>
+      <b>${esc(p.name)}</b>
+      <small>${p.keeps} keep${Number(p.keeps) === 1 ? "" : "s"}</small>
+    </button>`;
+  }).join("");
 }
 $("#featured").addEventListener("click", (e) => {
-  const f = e.target.closest("[data-follow]");
-  if (f) {
-    const on = !state.follows.has(f.dataset.follow);
-    setFollow(f.dataset.follow, on);
-    const p = state.featured.find((x) => x.user_id === f.dataset.follow);
-    return toast(on ? `Following ${p?.name ?? "them"}` : "Unfollowed");
-  }
-  const row = e.target.closest(".feat");
-  if (row) openPeople(row.dataset.handle);
+  const s = e.target.closest(".story");
+  if (s) openPeople(s.dataset.handle);
 });
-$("#featured").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.closest(".feat")) openPeople(e.target.closest(".feat").dataset.handle); });
 
 // Someone's public list, with a heart to keep any of their recipes.
 let peopleList = [], peopleProfile = null;
 async function profileFor(handle) {
-  const f = state.featured.find((p) => p.handle === handle);
+  const f = state.people.find((p) => p.handle === handle);
   if (f) return f;
   const { data } = await db.from("meals_profiles").select("user_id,handle,name").eq("handle", handle).maybeSingle();
   return data;

@@ -404,3 +404,21 @@ button.kept-by { cursor: pointer; }
 .land-pitch { font-size: 14px !important; margin-top: 14px !important; }
 .land-follow { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 12px; font-size: 13.5px; color: var(--muted); cursor: pointer; }
 .land-follow input { width: 17px; height: 17px; accent-color: var(--basil); }
+
+/* Others' keeps: story circles at the bottom of Kept */
+.others { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }
+.others-title { font-family: var(--serif); font-size: 18px; margin-bottom: 12px; }
+.others .featured { display: flex; gap: 16px; overflow-x: auto; margin: 0 -16px; padding: 4px 16px 8px; scrollbar-width: none; }
+.others .featured::-webkit-scrollbar { display: none; }
+.story { flex: none; width: 72px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; transition: transform .15s; }
+.story:active { transform: scale(.94); }
+.story-ring { position: relative; padding: 5.5px; border-radius: 50%; background: conic-gradient(from 200deg, var(--tomato), #e9a23b, var(--tomato)); }
+.story.is-on .story-ring { background: conic-gradient(from 200deg, var(--basil), #8fcf9f, var(--basil)); }
+.avatar.lg { width: 60px; height: 60px; font-size: 24px; box-shadow: 0 0 0 3px var(--bg); }
+.story-check { position: absolute; right: -1px; bottom: -1px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--basil); color: #fff; box-shadow: 0 0 0 2.5px var(--bg); }
+.story-check svg { width: 13px; height: 13px; stroke-width: 3; }
+.story b { font-size: 12.5px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.story small { font-size: 11px; color: var(--muted); margin-top: -3px; }
+.home #view-kept .others .featured { margin: 0 -18px; padding: 4px 18px 8px; }
+.home #view-kept .avatar.lg { box-shadow: 0 0 0 3px var(--paper); }
+.home #view-kept .story-check { box-shadow: 0 0 0 2.5px var(--paper); }
