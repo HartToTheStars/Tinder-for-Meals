@@ -1,0 +1,9 @@
+# forks.
+
+Tinder for meals. Swipe right to keep a recipe, left to pass. Kept recipes live in a searchable list.
+
+- **Frontend:** static `index.html` + `styles.css` + `app.js` (no build step).
+- **Data:** Supabase project `side-quests`, tables `meals_recipes` and `meals_swipes`, RPC `meals_deck`.
+- **Recipes:** `supabase/functions/meals-harvest` pulls from Smitten Kitchen, Half Baked Harvest, Bon Appétit and The Kitchn (RSS + sitemaps). Food52 blocks server-side fetches, so it's skipped.
+
+Keys: ← pass, → keep, ↑ open recipe, Backspace undo, `/` search.

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cut" />
+<title>Forks</title>
+<meta name="description" content="Swipe right on dinner." />
+<meta name="theme-color" content="#f7f1e8" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍴</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1 class="logo">forks<span>.</span></h1>
+    <nav class="tabs" role="tablist">
+      <button class="tab is-active" data-view="swipe" role="tab" aria-selected="true">Swipe</button>
+      <button class="tab" data-view="kept" role="tab" aria-selected="false">Kept <span class="count" id="keptCount">0</span></button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- SWIPE -->
+    <section class="view view-swipe is-active" id="view-swipe">
+      <div class="deck" id="deck" aria-live="polite">
+        <div class="deck-msg" id="deckMsg">
+          <div class="spinner"></div>
+          <p>Setting the table…</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="act act-undo" id="btnUndo" aria-label="Undo" title="Undo (⌫)" disabled>
+          <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+        </button>
+        <button class="act act-nope" id="btnNope" aria-label="Pass" title="Pass (←)">
+          <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <button class="act act-like" id="btnLike" aria-label="Keep" title="Keep (→)">
+          <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.7 4.5c2.1 0 3.6 1.1 5.3 3 1.7-1.9 3.2-3 5.3-3 3.7 0 5.8 3.7 4.3 7.2C19.5 16.4 12 21 12 21Z"/></svg>
+        </button>
+        <a class="act act-open" id="btnOpen" aria-label="Open recipe" title="Open recipe (↑)" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></svg>
+        </a>
+      </div>
+      <p class="hint">Drag, or use ← → keys</p>
+    </section>
+
+    <!-- KEPT -->
+    <section class="view view-kept" id="view-kept">
+      <div class="search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="search" type="search" placeholder="Search your keepers…" autocomplete="off" />
+      </div>
+      <div class="chips" id="chips"></div>
+      <ul class="list" id="list"></ul>
+      <div class="empty" id="keptEmpty" hidden>
+        <div class="empty-emoji">🍽️</div>
+        <p>Nothing kept yet. Go swipe right on something delicious.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
