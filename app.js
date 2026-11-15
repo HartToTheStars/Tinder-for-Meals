@@ -995,8 +995,62 @@ $("#acctBtn").addEventListener("click", () => {
   $("#acctCopy").innerHTML = icon("copy");
   $("#acctCopy").hidden = !state.me?.share_code;
   $("#acctShareUrl").textContent = state.me?.share_code ? `forkslist.com/${state.me.share_code}` : "Add your first name to get your link";
+  loadFollowers(true);
   openSheet("#acct");
 });
+
+// Followers: newest first, 10 at a time, with a Follow back button. Only you see who follows you.
+const followers = { rows: [], total: 0, loading: false };
+async function loadFollowers(reset) {
+  if (!state.user || followers.loading) return;
+  followers.loading = true;
+  if (reset) {
+    followers.rows = [];
+    $("#acctFollowerTotal").textContent = "";
+    $("#acctFollowerList").innerHTML = `<li class="fl-empty">Loading…</li>`;
+    $("#acctFollowerMore").hidden = true;
+  }
+  const { data, error } = await db.rpc("meals_my_followers", { p_offset: followers.rows.length, p_limit: 10 });
+  followers.loading = false;
+  if (error) {
+    console.error(error);
+    if (reset) $("#acctFollowerList").innerHTML = `<li class="fl-empty">Couldn't load your followers. Try again in a minute.</li>`;
+    return;
+  }
+  if (data?.length) followers.total = Number(data[0].total);
+  else if (reset) followers.total = 0;
+  followers.rows.push(...(data || []));
+  renderFollowers();
+}
+const shortDate = (d) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function renderFollowers() {
+  const n = followers.total;
+  $("#acctFollowerTotal").textContent = n ? `${n}` : "";
+  $("#acctFollowerList").innerHTML = followers.rows.length
+    ? followers.rows.map((f) => {
+      const on = state.follows.has(f.user_id);
+      const name = f.name || "Someone";
+      return `
+      <li>
+        ${avatar(name, "sm", f.color)}
+        <span class="fl-who"><b>${esc(name)}</b><small>Followed you ${esc(shortDate(f.followed_at))}</small></span>
+        <button class="follow sm ${on ? "is-on" : ""}" type="button" data-uid="${esc(f.user_id)}" data-name="${esc(name)}" aria-pressed="${on}">${icon(on ? "user-check" : "user-plus")}<span>${on ? "Following" : "Follow back"}</span></button>
+      </li>`;
+    }).join("")
+    : `<li class="fl-empty">No followers yet. Share your link and they'll show up here.</li>`;
+  $("#acctFollowerMore").hidden = followers.rows.length >= n;
+  $("#acctFollowerMore").textContent = `Show more (${n - followers.rows.length})`;
+}
+$("#acctFollowerList").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-uid]");
+  if (!b) return;
+  const on = !state.follows.has(b.dataset.uid);
+  b.disabled = true;
+  await setFollow(b.dataset.uid, on);
+  renderFollowers();
+  toast(on ? `Following ${b.dataset.name}` : `Unfollowed ${b.dataset.name}`);
+});
+$("#acctFollowerMore").addEventListener("click", () => loadFollowers(false));
 // Share your keeps: an unlisted link anyone can open to see and follow your list.
 const myLink = () => `${location.origin}/${state.me.share_code}`;
 function needName() {
@@ -1167,13 +1221,23 @@ async function profileFor(handle) {
 async function openPeople(handle) {
   peopleProfile = await profileFor(handle);
   if (!peopleProfile) return toast("Couldn't find that list");
-  const { data } = await db.rpc("meals_public_keeps", { p_handle: handle });
+  const [{ data }, { data: fc }] = await Promise.all([
+    db.rpc("meals_public_keeps", { p_handle: handle }),
+    db.rpc("meals_follower_count", { p_handle: handle }),
+  ]);
   peopleList = (data || []).filter((r) => !JUNK.test(r.title)).map(clean);
+  peopleHandle = handle;
+  peopleFollowers = Number(fc) || 0;
   $("#peopleAvatar").outerHTML = avatar(peopleProfile.name, "", peopleProfile.color).replace('class="avatar ', 'id="peopleAvatar" class="avatar ');
   $("#peopleName").textContent = `${peopleProfile.name}'s keeps`;
-  $("#peopleCount").textContent = `${peopleList.length} recipe${peopleList.length === 1 ? "" : "s"}`;
+  renderPeopleCount();
   renderPeople();
   openSheet("#people");
+}
+let peopleHandle = null, peopleFollowers = 0;
+function renderPeopleCount() {
+  const r = peopleList.length, f = peopleFollowers;
+  $("#peopleCount").textContent = `${r} recipe${r === 1 ? "" : "s"} · ${f} follower${f === 1 ? "" : "s"}`;
 }
 function renderPeople() {
   const on = state.follows.has(peopleProfile.user_id);
@@ -1193,6 +1257,12 @@ $("#peopleFollow").addEventListener("click", async () => {
   const on = !state.follows.has(peopleProfile.user_id);
   await setFollow(peopleProfile.user_id, on);
   renderPeople();
+  // Signed-in follows count toward the total (guest follows live on the device only), so refresh it.
+  if (state.user && peopleHandle) {
+    const { data: fc } = await db.rpc("meals_follower_count", { p_handle: peopleHandle });
+    peopleFollowers = Number(fc) || 0;
+    renderPeopleCount();
+  }
   toast(on ? `Following ${peopleProfile.name}` : "Unfollowed");
 });
 $("#peopleList").addEventListener("click", async (e) => {
