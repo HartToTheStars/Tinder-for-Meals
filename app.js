@@ -614,6 +614,20 @@ async function loadKept() {
   state.kept = await store.kept();
   updateCount();
   renderKept();
+  // Then fill in "Kept by Kelly and 3 others" from people you follow, and redraw once.
+  const missing = state.kept.filter((r) => !r.keptBy);
+  if (missing.length) { await attachKeptBy(missing).catch(() => {}); renderKept(); }
+}
+
+// Under each keep: who you follow also kept it. "Kept by Kelly", "Kelly and Hart", "Kelly and 3 others".
+function keptByLine(r) {
+  const ppl = r.keptBy?.people || [];
+  if (!ppl.length) return "";
+  const [a, b] = ppl;
+  const who = ppl.length === 1 ? esc(a.name)
+    : ppl.length === 2 ? `${esc(a.name)} and ${esc(b.name)}`
+    : `${esc(a.name)} and ${ppl.length - 1} others`;
+  return `<span class="kb"><span class="kb-faces">${ppl.slice(0, 3).map((p) => avatar(p.name, "xs", p.color)).join("")}</span><span class="kb-t">Kept by ${who}</span></span>`;
 }
 
 function updateCount(bump) {
@@ -685,6 +699,7 @@ function renderKept() {
       <a href="${esc(r.url)}" target="_blank" rel="noopener" draggable="false">
         <h4>${highlight(r.title, state.query.split(/\s+/).filter(Boolean))}</h4>
         <small>${esc(r.source)}${t.length ? `<span class="mini">${t.map((k) => `<span title="${TAG[k].l}">${icon(TAG[k].i)}</span>`).join("")}</span>` : ""}</small>
+        ${keptByLine(r)}
       </a>
       <button class="sh" aria-label="Share ${esc(r.title)}" title="Share">${icon("share")}</button>
       <button class="rm" aria-label="Remove ${esc(r.title)}" title="Remove">${icon("x")}</button>

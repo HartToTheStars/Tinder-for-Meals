@@ -672,3 +672,10 @@ a.src-row:hover { background: var(--bg); }
 .switch:checked::before { transform: translateX(18px); }
 .switch:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .switch:disabled { opacity: .6; }
+
+/* Keeps list: "Kept by Kelly and 3 others" (people you follow who kept it too) */
+.item .kb { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 12px; font-weight: 500; line-height: 1.3; color: var(--muted); min-width: 0; }
+.item .kb-t { min-width: 0; }
+.item .kb-faces { display: inline-flex; flex: none; }
+.item .kb-faces .avatar.xs { width: 18px; height: 18px; font-size: 9px; box-shadow: 0 0 0 1.5px var(--paper); }
+.item .kb-faces .avatar + .avatar { margin-left: -5px; }

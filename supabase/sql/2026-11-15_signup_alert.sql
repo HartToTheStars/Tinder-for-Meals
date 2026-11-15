@@ -1,0 +1,8 @@
+-- Applied as migration meals_signup_alert.
+-- Daily email to the owner when one or more people sign up (nothing on quiet days), 7am Pacific.
+-- Recipient (signup_alert_to) and last-checked time (signup_alert_since) live in meals_internal,
+-- the server-only settings table, so the address isn't in the repo.
+-- meals_new_signups(since) returns {total, users:[{email,name,at}]}, service only.
+-- meals_send_signup_alert() is called by cron at 14:00 and 15:00 UTC and only posts to the
+-- meals-signups edge function when it's 7am in Los Angeles (handles daylight saving).
+--   select cron.schedule('meals-signup-alert', '0 14,15 * * *', 'select public.meals_send_signup_alert()');
