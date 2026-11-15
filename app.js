@@ -1067,7 +1067,24 @@ $("#acctBtn").addEventListener("click", () => {
   $("#acctCopy").hidden = !state.me?.share_code;
   $("#acctShareUrl").textContent = state.me?.share_code ? `forkslist.com/${state.me.share_code}` : "Add your first name to get your link";
   loadFollowers(true);
+  loadSundayPref();
   openSheet("#acct");
+});
+
+// Sunday dinner pick email: on unless you've turned it off (no prefs row = on).
+async function loadSundayPref() {
+  const sw = $("#acctSunday");
+  if (!state.user) return;
+  const { data, error } = await db.from("meals_email_prefs").select("sunday_pick").eq("user_id", state.user.id).maybeSingle();
+  if (!error) sw.checked = data ? data.sunday_pick !== false : true;
+}
+$("#acctSunday").addEventListener("change", async (e) => {
+  const sw = e.target, on = sw.checked;
+  sw.disabled = true;
+  const { error } = await db.rpc("meals_set_sunday_pick", { p_on: on });
+  sw.disabled = false;
+  if (error) { sw.checked = !on; return toast("Couldn't save that. Try again?"); }
+  toast(on ? "Sunday dinner pick is on" : "Sunday dinner pick is off");
 });
 
 // Followers: newest first, 10 at a time, with a Follow back button. Only you see who follows you.
@@ -1541,7 +1558,12 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   const params = new URLSearchParams(location.search);
   const hash = params.get("login");
   const shared = params.get("r"), sharedBy = params.get("by"), sharedUser = params.get("u");
-  if ((shared || sharedUser) && !hash) history.replaceState(null, "", location.pathname);
+  // Links from the Sunday email: ?unsub=<token>, ?follow=<user id>, ?view=followers
+  const isId = (v) => /^[0-9a-f-]{36}$/i.test(v || "");
+  const unsub = params.get("unsub"), followId = params.get("follow"), view = params.get("view");
+  if (isId(followId)) ls.set("forks:pendingFollow", followId);
+  if (view === "followers") ls.set("forks:pendingView", "followers");
+  if ((shared || sharedUser || unsub || followId || view) && !hash) history.replaceState(null, "", location.pathname);
   let merge = false;
   if (hash) {
     history.replaceState(null, "", location.pathname);
@@ -1551,7 +1573,23 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   }
   const { data } = await db.auth.getSession();
   await setUser(data.session?.user ?? null, { merge });
-  if (state.user) setTimeout(askName, merge ? 1200 : 400);
+  if (isId(unsub)) {
+    const { data: ok } = await db.rpc("meals_sunday_unsubscribe", { p_token: unsub });
+    toast(ok ? "Sunday dinner pick is off. Turn it back on anytime in your account." : "That link didn't work. You can turn it off in your account.");
+  }
+  const pendingFollow = ls.get("forks:pendingFollow", ""), pendingView = ls.get("forks:pendingView", "");
+  if (!state.user && (isId(pendingFollow) || pendingView)) {
+    // Sign in first; the follow / followers view is applied once you're back from the magic link.
+    if (isId(followId) || view === "followers") setTimeout(() => openSave("manual"), 300);
+  } else if (state.user && (isId(pendingFollow) || pendingView)) {
+    ls.del("forks:pendingFollow"); ls.del("forks:pendingView");
+    if (isId(pendingFollow) && pendingFollow !== state.user.id) {
+      await setFollow(pendingFollow, true);
+      const who = (state.people || []).find((p) => p.user_id === pendingFollow)?.name;
+      toast(who ? `Following ${who}` : "Followed");
+    }
+    if (pendingView === "followers") setTimeout(() => { $("#acctBtn").click(); setTimeout(() => $("#acctFollowers").scrollIntoView({ block: "center", behavior: "smooth" }), 350); }, 300);
+  } else if (state.user) setTimeout(askName, merge ? 1200 : 400);
   if (!state.user) { await loadSocial(); await loadKept(); refill(); }
   // Arriving from a shared profile (/?u=handle)? Show their list with a Follow button.
   // Profile links are forkslist.com/<code> (served by SPA routing); ?u= still works.
