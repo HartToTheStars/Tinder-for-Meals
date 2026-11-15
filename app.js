@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "/icons.js?v=47";
+import { icon } from "/icons.js?v=48";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -867,7 +867,7 @@ async function setUser(user, { merge = false } = {}) {
 // ---------- social: follows, featured lists, sharing ----------
 const GUEST_FOLLOWS = "forks:follows";
 async function loadPeople() {
-  const { data } = await db.rpc("meals_people", { p_ids: state.user ? [] : [...state.follows] });
+  const { data } = await db.rpc("meals_people_v2", { p_ids: state.user ? [] : [...state.follows] });
   state.people = data || [];
   if (state.people.length) {
     // Colors come from each name card (works for unlisted profiles you follow, too).
