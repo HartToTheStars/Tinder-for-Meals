@@ -460,3 +460,7 @@ button.kept-by { cursor: pointer; }
 .share-link small { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .share-link .sl-ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--bg); flex: none; }
 .share-link .sl-ic svg { width: 17px; height: 17px; stroke-width: 2.2; }
+.share-link .sl-ic { cursor: pointer; transition: transform .15s, background .2s, color .2s; }
+.share-link .sl-ic:active { transform: scale(.9); }
+.share-link .sl-ic.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.share-link .sl-ic.ghost.done { color: var(--basil); box-shadow: inset 0 0 0 1.5px var(--basil); }

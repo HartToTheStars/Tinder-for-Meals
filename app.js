@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "/icons.js?v=32";
+import { icon } from "/icons.js?v=34";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -750,22 +750,37 @@ $("#acctBtn").addEventListener("click", () => {
   if (state.me?.name) $("#acctSheetIcon").innerHTML = avatar(state.me.name, "xl", state.me.color);
   $("#acctTitle").textContent = state.me?.name ? `Hi ${state.me.name}` : "You're signed in";
   $("#acctText").textContent = `${state.user.email}. Your keeps are saved to your account.`;
-  $("#acctShareIc").innerHTML = icon("share");
+  $("#acctShare").innerHTML = icon("share");
+  $("#acctCopy").innerHTML = icon("copy");
+  $("#acctCopy").hidden = !state.me?.share_code;
   $("#acctShareUrl").textContent = state.me?.share_code ? `forkslist.com/${state.me.share_code}` : "Add your first name to get your link";
   openSheet("#acct");
 });
 // Share your keeps: an unlisted link anyone can open to see and follow your list.
+const myLink = () => `${location.origin}/${state.me.share_code}`;
+function needName() {
+  if (state.me?.share_code) return false;
+  if (state.user) ls.del(`forks:nameLater:${state.user.id}`);
+  closeSheet("#acct", askName);
+  return true;
+}
 $("#acctShare").addEventListener("click", async () => {
-  if (!state.me?.share_code) {
-    if (state.user) ls.del(`forks:nameLater:${state.user.id}`);
-    return closeSheet("#acct", askName);
-  }
-  const url = `${location.origin}/${state.me.share_code}`;
+  if (needName()) return;
   try {
-    if (navigator.share) { await navigator.share({ title: `${state.me.name}'s keeps on forks.`, text: `${state.me.name}'s keeps on forks. Swipe right on dinner.`, url }); return; }
+    if (navigator.share) { await navigator.share({ title: `${state.me.name}'s keeps on forks.`, text: `${state.me.name}'s keeps on forks. Swipe right on dinner.`, url: myLink() }); return; }
   } catch (err) { if (err?.name === "AbortError") return; }
-  try { await navigator.clipboard.writeText(url); toast("Link copied"); }
-  catch { prompt("Copy this link", url); }
+  $("#acctCopy").click();
+});
+$("#acctCopy").addEventListener("click", async () => {
+  if (needName()) return;
+  try { await navigator.clipboard.writeText(myLink()); }
+  catch { return prompt("Copy this link", myLink()); }
+  const b = $("#acctCopy");
+  b.innerHTML = icon("check");
+  b.classList.add("done");
+  toast("Link copied");
+  clearTimeout(b._t);
+  b._t = setTimeout(() => { b.innerHTML = icon("copy"); b.classList.remove("done"); }, 1600);
 });
 $("#acctDone").addEventListener("click", () => closeSheet("#acct"));
 // Delete account: tap once to arm, again to confirm.
@@ -855,6 +870,7 @@ async function loadSocial() {
     state.follows = new Set(ls.get(GUEST_FOLLOWS, []));
     state.me = null;
   }
+  updateAcct(); // the header avatar needs the profile, which only arrives here
   await loadPeople();
 }
 async function setFollow(userId, on) {
@@ -1011,7 +1027,11 @@ function askName() {
   if (ls.get(`forks:nameLater:${state.user.id}`, false)) return;
   $("#nameErr").hidden = true;
   $("#nameInput").value = "";
-  pickedColor = BRAND[Math.floor(Math.random() * BRAND.length)]; // random brand color, kept on save
+  // Least-used brand color (from the server), so new people rarely share a color. Kept on save.
+  pickedColor = BRAND[Math.floor(Math.random() * BRAND.length)];
+  db.rpc("meals_suggest_color").then(({ data }) => {
+    if (BRAND.includes(data)) { pickedColor = data; previewKey = null; previewName(); }
+  });
   previewKey = null;
   previewName();
   openSheet("#nameSheet");
