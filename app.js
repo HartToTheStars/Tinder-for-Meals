@@ -1098,10 +1098,9 @@ async function loadSundayPref() {
 $("#acctSundayPreview").addEventListener("click", async (e) => {
   e.preventDefault(); e.stopPropagation();
   const frame = $("#mailPrevFrame"), msg = $("#mailPrevMsg");
-  $("#mailPrevSub").textContent = "Loading your preview…";
   frame.srcdoc = ""; frame.hidden = false; msg.hidden = true;
   openSheet("#mailPrev");
-  const fail = (t) => { frame.hidden = true; msg.hidden = false; msg.textContent = t; $("#mailPrevSub").textContent = "Sundays at 5am PT"; };
+  const fail = (t) => { frame.hidden = true; msg.hidden = false; msg.textContent = t; };
   try {
     const { data } = await db.auth.getSession();
     const res = await fetch(`${SUPABASE_URL}/functions/v1/meals-sunday`, {
@@ -1112,7 +1111,6 @@ $("#acctSundayPreview").addEventListener("click", async (e) => {
     const j = await res.json().catch(() => ({}));
     if (!res.ok) return fail("Couldn't load the preview. Try again in a minute.");
     if (!j.html) return fail("Keep a few dinners and your first pick will show up here.");
-    $("#mailPrevSub").textContent = j.subject;
     // Links open in a new tab, not inside the preview.
     frame.srcdoc = j.html.replace("<head>", '<head><base target="_blank">');
   } catch { fail("Couldn't load the preview. Try again in a minute."); }
