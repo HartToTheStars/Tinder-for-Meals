@@ -91,6 +91,8 @@ const months = (n: number, site = "https://www.bonappetit.com") => Array.from({ 
   const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - i);
   return `${site}/sitemap-${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}.xml`;
 });
+// Half Baked Harvest mixes lifestyle posts into its post sitemaps; these series are never recipes.
+const HBH_SKIP = /\/(\d+-)?(nine-favorite-things|things-i-am-going-crazy|hbh-meal-plan|weekly-meal-plan|[^/]*gift-guide|\d+-recipes-to-cook|[^/]*recipes-to-cook-in|the-barn|the-studio|introducing|[^/]*holiday-cookie-box|[^/]*thanksgiving-menu)[^/]*\/?$/;
 const SK_SKIP = /\/(about|faq|contact|recipes|category|tag|page|book|press|cookbook|surprise-me)\//;
 
 const SOURCES: Source[] = [
@@ -104,8 +106,8 @@ const SOURCES: Source[] = [
   {
     name: "Half Baked Harvest",
     collect: async () => [
-      ...(await rss("https://www.halfbakedharvest.com/feed/")),
-      ...(await sitemap([1, 2, 3, 4].map((i) => `https://www.halfbakedharvest.com/post-sitemap${i === 1 ? "" : i}.xml`))),
+      ...(await rss("https://www.halfbakedharvest.com/feed/", (_, u) => !HBH_SKIP.test(u))),
+      ...(await sitemap([1, 2, 3, 4, 5].map((i) => `https://www.halfbakedharvest.com/post-sitemap${i === 1 ? "" : i}.xml`), (u) => !HBH_SKIP.test(u))),
     ],
   },
   {
