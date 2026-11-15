@@ -38,6 +38,14 @@ const ls = {
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 let toastTimer;
+// Staging (any here.now address except production's own) wears a badge so it's never mistaken for forkslist.com.
+if (/\.here\.now$/.test(location.hostname) && !location.hostname.startsWith("humble-aura-cbq3.")) {
+  const badge = document.createElement("div");
+  badge.className = "env-badge";
+  badge.textContent = "Staging";
+  document.body.append(badge);
+}
+
 function toast(msg, action) {
   const t = $("#toast");
   t.textContent = msg;

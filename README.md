@@ -25,7 +25,21 @@ Every 10 swipes the app calls `meals_refine()`, which recomputes `meals_taste`: 
 - Swipes are per user in `meals_user_swipes` (RLS: own rows only). The old shared `meals_swipes` table is kept as a closed backup; its rows were copied to Kelly.
 
 ## Share previews
-`tools/og/render.js` renders 1200x630 preview images (og/<id>.jpg, og/site.jpg) with headless Chromium and writes a share page per recipe at s/<id>/index.html with Open Graph tags. Re-run it after a harvest to cover new recipes, then publish with `python3 tools/publish.py`. Recipes without a page share as /?r=<id> (generic site preview).
+`tools/og/render.js` renders 1200x630 preview images (og/<id>.jpg, og/site.jpg) with headless Chromium and writes a share page per recipe at s/<id>/index.html with Open Graph tags. Re-run it after a harvest to cover new recipes, then publish (see Releasing). Recipes without a page share as /?r=<id> (generic site preview).
 
 ## Profile links
 Every profile has a random `share_code` (3 letters + 4 digits). `forkslist.com/<code>` opens that person's keeps with a Follow button (here.now SPA mode serves index.html for unknown paths; assets use absolute paths). Profiles are unlisted: never shown in discovery, but anyone with the link can see and follow. Recipe shares carry `?by=<code>`. Handles only resolve for public/featured lists (Kelly), so first names can't be guessed.
+
+
+## Releasing
+
+Changes go to staging first, then production.
+
+1. `python3 tools/publish.py` publishes to **staging** (password-protected, shows a blue "Staging" badge). Try it on a phone.
+2. `python3 tools/publish.py --prod` publishes to **production** (forkslist.com). Nothing reaches real users without `--prod`.
+3. Something wrong in production? `python3 tools/rollback.py --previous` puts the previous version back instantly. `python3 tools/rollback.py` lists recent versions.
+
+Staging and production share one Supabase database (same recipes, accounts, keeps). So:
+- Swiping on staging changes your real keeps. Use a test account for messy testing.
+- Database changes ship the moment they're applied, for both sites. Keep them additive: add a new function or column (`meals_people_v2` style) instead of changing one the live app calls, ship the front end that uses it, then clean up the old one. That way rollback.py is always safe.
+- For risky schema work, use a Supabase branch (a throwaway copy of the database) rather than the live one.
