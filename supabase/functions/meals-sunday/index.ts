@@ -1,16 +1,19 @@
-// Sunday dinner pick: one email a week to everyone with an account, unless they turned it off.
+// Sunday Dinner Pick email: one email a week to everyone with an account, unless they turned it off.
 // POST { user_ids?: string[], dry?: boolean } with header x-forks-key: <sunday_key from meals_internal (server-only table)>.
 //   user_ids: only these people (used for test sends); omitted = every account that hasn't turned it off and
 //   wasn't sent one in the last 6 days. On by default: no prefs row means on.
 //   dry: return the rendered emails instead of sending.
 //   test: send, but don't record it as this week's email (drafts).
+// POST { preview: true } with a signed-in user's access token (no key): returns that user's own
+//   email as HTML for the in-app "See preview", never sends.
 // Emails always go to the person's own account email, never to an address passed in.
 // Sent through Resend (RESEND_API_KEY; sender MAIL_FROM, default hello@forkslist.com).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const SITE = "https://forkslist.com";
 const FROM = Deno.env.get("MAIL_FROM") ?? "forks <hello@forkslist.com>";
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type, x-forks-key", "access-control-allow-methods": "POST, OPTIONS" };
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...CORS } });
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const https = (u: string) => String(u || "").replace(/^http:\/\//, "https://");
 
@@ -111,7 +114,7 @@ function render(d: Digest) {
     <td align="right" style="font:400 12px Helvetica,Arial,sans-serif;color:#74685e;">${esc(dateLine())}</td></tr></table></td></tr>
   ${hero}${people}${followers}${whoToFollow}
   <tr><td align="center" style="padding:6px 8px 0;font:400 12px/1.55 Helvetica,Arial,sans-serif;color:#74685e;">
-    You&rsquo;re receiving this because you<br>have &ldquo;Sunday dinner pick&rdquo; turned on.<br><br>
+    You&rsquo;re receiving this because you<br>have &ldquo;Sunday Dinner Pick email&rdquo; turned on.<br><br>
     <a href="${unsub}" style="color:#74685e;">Turn it off</a> &middot; <a href="${SITE}/privacy.html" style="color:#74685e;">Privacy</a><br><br>
     Forks is made with &#10084;&#65039; for Kelly
   </td></tr>
@@ -123,18 +126,36 @@ function render(d: Digest) {
     ...d.people.map((pp) => `${pp.name} kept ${pp.n} this week: ${pp.recipes.map((r) => r.title).join(", ")}`),
     ...(n ? ["", `${n} new follower${n === 1 ? "" : "s"}: ${d.new_followers.map((f) => f.name).join(", ")}. See them: ${SITE}/?view=followers`] : []),
     ...(!n && sugg.length ? ["", `Who to follow: ${sugg.map((u) => `${u.name} (${u.followers} follower${u.followers === 1 ? "" : "s"}, ${u.keeps ?? 0} keep${u.keeps === 1 ? "" : "s"}) ${SITE}/${encodeURIComponent(u.key)}`).join(", ")}`] : []),
-    "", `Turn off Sunday dinner pick: ${unsub}`,
+    "", `Turn off Sunday Dinner Pick email: ${unsub}`,
   ].join("\n");
 
   return { subject: `This week: ${p.title}`, preview: preview(d), html, text, unsub };
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const body = await req.json().catch(() => ({}));
+
+  // In-app preview: render the signed-in person's own email, don't send anything.
+  if (body.preview) {
+    const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+    const { data: who } = await db.auth.getUser(token);
+    const uid = who?.user?.id;
+    if (!uid) return json({ error: "sign in" }, 401);
+    await db.from("meals_email_prefs").upsert({ user_id: uid }, { onConflict: "user_id", ignoreDuplicates: true });
+    const { data: d } = await db.rpc("meals_sunday_digest", { p_user: uid });
+    const digest = d as Digest | null;
+    if (!digest?.pick) return json({ html: null });
+    digest.pick.title = tc(digest.pick.title);
+    for (const pp of digest.people ?? []) for (const r of pp.recipes) r.title = tc(r.title);
+    const mail = render(digest);
+    return json({ subject: mail.subject, preview: mail.preview, html: mail.html });
+  }
+
   const { data: k } = await db.from("meals_internal").select("value").eq("name", "sunday_key").maybeSingle();
   if (!k?.value || req.headers.get("x-forks-key") !== k.value) return json({ error: "forbidden" }, 403);
-  const body = await req.json().catch(() => ({}));
   const dry = !!body.dry;
 
   let ids: string[] = Array.isArray(body.user_ids) ? body.user_ids.filter((x: unknown) => typeof x === "string").slice(0, 50) : [];

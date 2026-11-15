@@ -1086,20 +1086,45 @@ $("#acctBtn").addEventListener("click", () => {
   openSheet("#acct");
 });
 
-// Sunday dinner pick email: on unless you've turned it off (no prefs row = on).
+// Sunday Dinner Pick email: on unless you've turned it off (no prefs row = on).
 async function loadSundayPref() {
   const sw = $("#acctSunday");
   if (!state.user) return;
   const { data, error } = await db.from("meals_email_prefs").select("sunday_pick").eq("user_id", state.user.id).maybeSingle();
   if (!error) sw.checked = data ? data.sunday_pick !== false : true;
 }
+// "See preview": your own email for this week, rendered by the sender but not sent.
+$("#acctSundayPreview").addEventListener("click", async (e) => {
+  e.preventDefault(); e.stopPropagation();
+  const frame = $("#mailPrevFrame"), msg = $("#mailPrevMsg");
+  $("#mailPrevSub").textContent = "Loading your preview…";
+  frame.srcdoc = ""; frame.hidden = false; msg.hidden = true;
+  openSheet("#mailPrev");
+  const fail = (t) => { frame.hidden = true; msg.hidden = false; msg.textContent = t; $("#mailPrevSub").textContent = "Sundays at 5am PT"; };
+  try {
+    const { data } = await db.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/meals-sunday`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${data.session?.access_token}`, apikey: SUPABASE_ANON, "content-type": "application/json" },
+      body: JSON.stringify({ preview: true }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return fail("Couldn't load the preview. Try again in a minute.");
+    if (!j.html) return fail("Keep a few dinners and your first pick will show up here.");
+    $("#mailPrevSub").textContent = j.subject;
+    // Links open in a new tab, not inside the preview.
+    frame.srcdoc = j.html.replace("<head>", '<head><base target="_blank">');
+  } catch { fail("Couldn't load the preview. Try again in a minute."); }
+});
+$("#mailPrevDone").addEventListener("click", () => closeSheet("#mailPrev"));
+$("#mailPrev").addEventListener("click", (e) => { if (e.target.id === "mailPrev") closeSheet("#mailPrev"); });
 $("#acctSunday").addEventListener("change", async (e) => {
   const sw = e.target, on = sw.checked;
   sw.disabled = true;
   const { error } = await db.rpc("meals_set_sunday_pick", { p_on: on });
   sw.disabled = false;
   if (error) { sw.checked = !on; return toast("Couldn't save that. Try again?"); }
-  toast(on ? "Sunday dinner pick is on" : "Sunday dinner pick is off");
+  toast(on ? "Sunday Dinner Pick email is on" : "Sunday Dinner Pick email is off");
 });
 
 // Followers: newest first, 10 at a time, with a Follow back button. Only you see who follows you.
@@ -1590,7 +1615,7 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   await setUser(data.session?.user ?? null, { merge });
   if (isId(unsub)) {
     const { data: ok } = await db.rpc("meals_sunday_unsubscribe", { p_token: unsub });
-    toast(ok ? "Sunday dinner pick is off. Turn it back on anytime in your account." : "That link didn't work. You can turn it off in your account.");
+    toast(ok ? "Sunday Dinner Pick email is off. Turn it back on anytime in your account." : "That link didn't work. You can turn it off in your account.");
   }
   const pendingFollow = ls.get("forks:pendingFollow", ""), pendingView = ls.get("forks:pendingView", "");
   if (!state.user && (isId(pendingFollow) || pendingView)) {
