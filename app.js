@@ -665,7 +665,7 @@ function renderKept() {
     const t = tagIcons(r, 4);
     return `
     <li class="swipe-row" data-id="${r.id}">
-      <button class="swipe-bg swipe-open" type="button" tabindex="-1" aria-label="Share ${esc(r.title)}">${icon("share")}<b>Share</b></button>
+      <span class="swipe-bg swipe-open" aria-hidden="true">${icon("party-popper")}<b>Celebrate</b></span>
       <span class="swipe-bg swipe-del" aria-hidden="true"><b>Remove</b>${icon("x")}</span>
       <div class="item${r.id === state.freshId ? " fresh" : ""}" data-id="${r.id}" style="animation-delay:${r.id === state.freshId ? 0 : Math.min(i, 12) * 20}ms">
       <img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" />
@@ -736,40 +736,28 @@ async function removeKeep(row) {
   updateAcct();
 }
 
-// Keeps rows: swipe left to remove; swipe right to slide the row open onto a Share button (a real tap, which
-// iPhone Safari requires before it will show the share sheet). Tap anywhere else, or swipe back, to close it.
+// Keeps rows: swipe left to remove (with Undo), swipe right to celebrate (confetti). Vertical scrolling still works.
 (() => {
   const list = $("#list");
-  const REVEAL = 104;
-  let drag = null, eatClick = false, revealed = null;
-  const parts = (row) => ({ row, item: row.querySelector(".item"), open: row.querySelector(".swipe-open"), del: row.querySelector(".swipe-del") });
+  let drag = null, eatClick = false;
   const threshold = (item) => Math.min(110, item.offsetWidth * 0.3);
-  const paint = (d, x) => {
-    d.item.style.transform = `translateX(${x}px)`;
-    d.open.style.opacity = x > 0 ? Math.min(1, x / 60) : 0;
-    d.del.style.opacity = x < 0 ? Math.min(1, -x / 60) : 0;
-    d.row.classList.toggle("armed", x < -threshold(d.item));
+  const paint = (d, dx) => {
+    d.item.style.transform = `translateX(${dx}px)`;
+    d.open.style.opacity = dx > 0 ? Math.min(1, dx / 60) : 0;
+    d.del.style.opacity = dx < 0 ? Math.min(1, -dx / 60) : 0;
+    d.row.classList.toggle("armed", Math.abs(dx) > threshold(d.item));
   };
-  const snap = (d, x) => {
+  const settle = (d) => {
     d.item.classList.add("snapping");
-    paint(d, x);
+    paint(d, 0);
+    d.row.classList.remove("armed");
     setTimeout(() => d.item.classList.remove("snapping"), 320);
   };
-  const close = () => {
-    if (!revealed) return;
-    const d = parts(revealed);
-    revealed.classList.remove("revealed");
-    revealed = null;
-    snap(d, 0);
-  };
-  const eat = () => { eatClick = true; setTimeout(() => { eatClick = false; }, 400); };
-
   list.addEventListener("pointerdown", (e) => {
-    if (e.button > 0 || e.target.closest(".swipe-open, .sh, .rm")) return;
     const item = e.target.closest(".swipe-row > .item");
-    if (!item) return;
-    const d = parts(item.parentElement);
-    drag = { ...d, base: revealed === d.row ? REVEAL : 0, x: e.clientX, y: e.clientY, dx: 0, on: false, pid: e.pointerId };
+    if (!item || e.button > 0 || e.target.closest(".sh, .rm")) return;
+    const row = item.parentElement;
+    drag = { item, row, open: row.querySelector(".swipe-open"), del: row.querySelector(".swipe-del"), x: e.clientX, y: e.clientY, dx: 0, on: false, pid: e.pointerId };
   });
   list.addEventListener("pointermove", (e) => {
     const d = drag;
@@ -779,60 +767,67 @@ async function removeKeep(row) {
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { drag = null; return; } // it's a scroll
       if (Math.abs(dx) < 10) return;
       d.on = true;
-      if (revealed && revealed !== d.row) close();
       d.item.classList.remove("snapping");
       try { d.item.setPointerCapture(e.pointerId); } catch { /* fine */ }
     }
     d.dx = dx;
-    paint(d, d.base + dx);
+    paint(d, dx);
   });
   const end = (e) => {
     const d = drag;
     drag = null;
-    if (!d) return;
-    if (!d.on) {
-      // A plain tap while a row is open just closes it (and doesn't follow the recipe link).
-      if (revealed && e.type === "pointerup") { eat(); close(); }
-      return;
-    }
-    eat();
-    const x = d.base + d.dx, th = threshold(d.item);
-    if (e.type === "pointerup" && x < -th) {
-      if (revealed === d.row) revealed = null;
-      d.row.classList.remove("revealed");
+    if (!d || !d.on) return;
+    eatClick = true;
+    setTimeout(() => { eatClick = false; }, 400);
+    const th = threshold(d.item);
+    if (e.type === "pointerup" && d.dx < -th) {
       d.item.classList.add("snapping");
       d.item.style.transform = "translateX(-110%)";
       d.del.style.opacity = 1;
       removeKeep(d.row);
       return;
     }
-    if (e.type === "pointerup" && x > REVEAL / 2) {
-      revealed = d.row;
-      d.row.classList.add("revealed");
-      warmPreviews();
-      snap(d, REVEAL);
-      return;
+    if (e.type === "pointerup" && d.dx > th) {
+      const box = d.row.getBoundingClientRect();
+      confetti(box.left + Math.min(d.dx, box.width) * 0.6, box.top + box.height / 2);
+      buzz([12, 50, 18]);
     }
-    if (revealed === d.row) { revealed = null; d.row.classList.remove("revealed"); }
-    snap(d, 0);
+    settle(d);
   };
   list.addEventListener("pointerup", end);
   list.addEventListener("pointercancel", end);
-  list.addEventListener("click", (e) => {
-    const share = e.target.closest(".swipe-open");
-    if (share) {
-      const row = share.closest(".swipe-row");
-      shareRecipe(state.kept.find((r) => r.id === row.dataset.id));
-      close();
-      return;
-    }
-    if (eatClick) { e.preventDefault(); e.stopPropagation(); }
-  }, true);
   // Links and images would start a native drag and steal the gesture.
   list.addEventListener("dragstart", (e) => { if (e.target.closest(".swipe-row")) e.preventDefault(); });
-  // Tapping outside the list closes an open row.
-  document.addEventListener("pointerdown", (e) => { if (revealed && !list.contains(e.target)) close(); });
+  // A swipe is not a tap: don't follow the recipe link after one.
+  list.addEventListener("click", (e) => { if (eatClick) { e.preventDefault(); e.stopPropagation(); } }, true);
 })();
+
+// Confetti: a burst of paper bits from (x, y) that arcs up, spins and falls with gravity.
+function confetti(x, y, n = 90) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const colors = ["#e8553e", "#3f9b6b", "#e9a23b", "#f3c3b8", "#6f8fd8", "#f7f1e8"];
+  const layer = document.createElement("div");
+  layer.className = "confetti";
+  document.body.append(layer);
+  const fall = window.innerHeight - y + 80;
+  let left = n;
+  for (let i = 0; i < n; i++) {
+    const bit = document.createElement("i");
+    const w = 6 + Math.random() * 6, h = Math.random() < 0.3 ? w : w * (0.4 + Math.random() * 0.4);
+    bit.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${colors[i % colors.length]};border-radius:${Math.random() < 0.25 ? "50%" : "2px"}`;
+    layer.append(bit);
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.1; // mostly upward fan
+    const v = 160 + Math.random() * 260;
+    const dx = Math.cos(a) * v, up = Math.sin(a) * v; // up is negative
+    const drift = (Math.random() - 0.5) * 120, spin = (Math.random() - 0.5) * 1440, flip = Math.random() * 720;
+    const dur = 1300 + Math.random() * 900;
+    bit.animate([
+      { transform: "translate(-50%, -50%) rotate(0deg) rotateX(0deg)", opacity: 1 },
+      { transform: `translate(calc(-50% + ${dx * 0.8}px), calc(-50% + ${up}px)) rotate(${spin * 0.35}deg) rotateX(${flip * 0.35}deg)`, opacity: 1, offset: 0.3, easing: "cubic-bezier(.3,.6,.6,1)" },
+      { transform: `translate(calc(-50% + ${dx + drift}px), calc(-50% + ${fall}px)) rotate(${spin}deg) rotateX(${flip}deg)`, opacity: 0.9, easing: "cubic-bezier(.5,0,.9,.6)" },
+    ], { duration: dur, delay: Math.random() * 60, fill: "forwards" }).finished.then(() => { bit.remove(); if (--left === 0) layer.remove(); }, () => {});
+  }
+}
 
 // First time on Keeps with something kept: the top row peeks right (Open) then left (Remove), once.
 function maybeHintKeepSwipe() {
