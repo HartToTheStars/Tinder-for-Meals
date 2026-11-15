@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "/icons.js?v=42";
+import { icon } from "/icons.js?v=43";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -233,7 +233,7 @@ function cardHTML(r) {
 }
 
 function render() {
-  const visible = state.deck.slice(-4);
+  const visible = state.deck.slice(-5); // top card + two fanned out on each side
   const existing = new Map([...deckEl.querySelectorAll(".card:not(.toss)")].map((el) => [el.dataset.id, el]));
   const keep = new Set(visible.map((r) => r.id));
   existing.forEach((el, id) => { if (!keep.has(id) && !el.classList.contains("gone")) el.remove(); });
@@ -383,11 +383,24 @@ async function swipe(liked, evt) {
 
   el._stopTeach?.();
   el.classList.add("gone");
-  el.querySelector(liked ? ".stamp-like" : ".stamp-nope").style.opacity = 1;
-  const w = window.innerWidth;
-  el.style.transform = `translate(${liked ? w : -w}px, ${-40}px) rotate(${liked ? 28 : -28}deg)`;
-  el.style.opacity = "0";
-  setTimeout(() => el.remove(), 380);
+  const stamp = el.querySelector(liked ? ".stamp-like" : ".stamp-nope");
+  const w = window.innerWidth, s = liked ? 1 : -1;
+  if (evt?.pointerType) {
+    // Dragged: the stamp is already showing, just fling it.
+    stamp.style.opacity = 1;
+    el.style.transform = `translate(${s * w}px, -40px) rotate(${s * 28}deg)`;
+    el.style.opacity = "0";
+    setTimeout(() => el.remove(), 380);
+  } else {
+    // Button or arrow key: lean, show KEEP / NOPE, then fling, so it reads like a swipe.
+    el.style.transition = "none";
+    stamp.animate([{ opacity: 0 }, { opacity: 1, offset: 0.35 }, { opacity: 1 }], { duration: 560, fill: "forwards" });
+    el.animate([
+      { transform: "translate(0, 0) rotate(0deg)", opacity: 1 },
+      { transform: `translate(${s * 46}px, -6px) rotate(${s * 6}deg)`, opacity: 1, offset: 0.45 },
+      { transform: `translate(${s * w}px, -40px) rotate(${s * 28}deg)`, opacity: 0 },
+    ], { duration: 560, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" }).finished.then(() => el.remove(), () => el.remove());
+  }
 
   state.deck.pop();
   state.history.push({ recipe, liked });

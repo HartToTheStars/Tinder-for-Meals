@@ -548,3 +548,14 @@ button.kept-by { cursor: pointer; }
   .home .act-nope svg, .home .act-like svg { width: 24px; height: 24px; }
   .home .act svg { width: 19px; height: 19px; }
 }
+
+/* fanned stack: cards behind the top one tilt out to the left and right */
+.card:nth-last-child(n+2) { transform-origin: 50% 100%; filter: brightness(.82); }
+.card:nth-last-child(2) { transform: translateX(-12px) rotate(-3deg) scale(.97); opacity: 1; }
+.card:nth-last-child(3) { transform: translateX(12px) rotate(3deg) scale(.97); opacity: 1; }
+.card:nth-last-child(4) { transform: translateX(-26px) rotate(-6deg) scale(.94); opacity: 1; filter: brightness(.68); }
+.card:nth-last-child(5) { transform: translateX(26px) rotate(6deg) scale(.94); opacity: 1; filter: brightness(.68); }
+.card:nth-last-child(n+6) { opacity: 0; transform: scale(.9); }
+.card { transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s, filter .35s; }
+.card.gone { filter: none; }
+.home #view-swipe .deck { margin-bottom: 18px; }
