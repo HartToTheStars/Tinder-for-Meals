@@ -1,0 +1,19 @@
+-- Applied as migration meals_sunday_digest_who_to_follow.
+-- meals_sunday_digest(uuid) now also returns `suggestions`: the 3 most-followed
+-- public profiles (is_public, named, not you, not already followed).
+-- The Sunday email shows them under "Who to follow." only when you got no new
+-- followers this week; if there are no suggestions the section is hidden.
+-- Only public profiles are suggested, since following someone exposes their keeps.
+--
+-- Suggestions block added to the function body:
+--   select coalesce(jsonb_agg(s order by c desc), '[]'::jsonb) into sugg from (
+--     select jsonb_build_object('user_id', p.user_id, 'name', p.name, 'color', p.color, 'key', p.handle,
+--              'followers', (select count(*) from meals_follows x where x.followee = p.user_id)) s,
+--            (select count(*) from meals_follows x where x.followee = p.user_id) c
+--     from meals_profiles p
+--     where p.is_public and p.name is not null and p.user_id <> p_user
+--       and p.user_id not in (select followee from meals_follows where follower = p_user)
+--     order by c desc, p.created_at
+--     limit 3
+--   ) q;
+-- and returned as 'suggestions', sugg.
