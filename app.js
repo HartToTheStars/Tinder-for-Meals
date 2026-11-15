@@ -273,8 +273,7 @@ function render() {
   });
   // Cards flying away sit first in the DOM (so stack math ignores them) but render on top.
   deckEl.querySelectorAll(".card.gone").forEach((g) => { g.removeAttribute("data-depth"); deckEl.insertBefore(g, deckEl.firstChild); });
-  // Depth in the stack drives the fan (0 = top); the side was fixed when the card was made.
-  [...deckEl.querySelectorAll(".card:not(.gone):not(.toss)")].reverse().forEach((c, i) => { c.dataset.depth = Math.min(i, 5); });
+  restack();
 
   const top = topCard();
   if (top) bindDrag(top);
@@ -307,6 +306,12 @@ function render() {
   if (state.deck.length < 5 && !state.dry && !state.busy) refill();
 }
 
+// Depth in the stack drives the fan (0 = top); the side was fixed when the card was made.
+// A card that's still being stamped ("holding") keeps its spot, so the rest only move up once it's thrown.
+function restack() {
+  const holding = deckEl.querySelectorAll(".card.gone.holding").length;
+  [...deckEl.querySelectorAll(".card:not(.gone):not(.toss)")].reverse().forEach((c, i) => { c.dataset.depth = Math.min(i + holding, 5); });
+}
 let fanSide = "r"; // the next card dealt goes on the other side from the last one
 const topCard = () => [...deckEl.querySelectorAll(".card:not(.gone):not(.toss)")].pop();
 
@@ -431,6 +436,8 @@ async function stampSlam(el, stamp, s, f) {
   const shown = Number(stamp.style.opacity) || 0;
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
     stamp.style.opacity = 1;
+    el.classList.remove("holding");
+    restack();
     await el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, delay: 120, fill: "forwards" }).finished;
     return;
   }
@@ -461,6 +468,9 @@ async function stampSlam(el, stamp, s, f) {
     { transform: lean },
   ], { duration: 140, fill: "forwards" }).finished;
   await sleep(dragged ? 90 : 150);
+  // Stamp done: now the next card moves up as this one is thrown.
+  el.classList.remove("holding");
+  restack();
   // Throw onward from wherever it is: solid until it's off screen, a little spin, a short fade at the very end.
   const w = window.innerWidth, cw = el.offsetWidth;
   const tx = s * (w + cw * 0.9), ty = ly - 60, r1 = lr + s * 40;
@@ -478,10 +488,11 @@ async function swipe(liked, evt) {
   if (!el || !recipe || sheetOpen()) return;
 
   el._stopTeach?.();
-  el.classList.add("gone");
+  el.classList.add("gone", "holding");
   const stamp = el.querySelector(liked ? ".stamp-like" : ".stamp-nope");
   const s = liked ? 1 : -1;
-  stampSlam(el, stamp, s, evt?.pointerType ? el._fling : null).then(() => el.remove(), () => el.remove());
+  const drop = () => { el.remove(); restack(); }; // also unsticks the stack if the slam was interrupted
+  stampSlam(el, stamp, s, evt?.pointerType ? el._fling : null).then(drop, drop);
 
   state.deck.pop();
   state.history.push({ recipe, liked });
