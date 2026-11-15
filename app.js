@@ -1364,7 +1364,7 @@ async function openPeople(handle) {
 let peopleHandle = null, peopleFollowers = 0;
 function renderPeopleCount() {
   const r = peopleList.length, f = peopleFollowers;
-  $("#peopleCount").textContent = `${r} recipe${r === 1 ? "" : "s"} · ${f} follower${f === 1 ? "" : "s"}`;
+  $("#peopleCount").textContent = `${r} keep${r === 1 ? "" : "s"} · ${f} follower${f === 1 ? "" : "s"}`;
 }
 function renderPeople() {
   const on = state.follows.has(peopleProfile.user_id);

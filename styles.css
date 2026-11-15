@@ -696,7 +696,11 @@ a.src-row:hover { background: var(--bg); }
 .sheet-x svg { width: 18px; height: 18px; stroke-width: 2.2; }
 .sheet-x:active { transform: scale(.9); }
 .sheet-x:hover { color: var(--ink); }
-.list-sheet .ls-head { padding-right: 44px; }
+/* Someone's keeps: X on its own row, then avatar + name + counts, then a full-width Follow */
+#people .list-sheet { padding-top: 60px; }
+#people .ls-head { flex-wrap: wrap; row-gap: 14px; }
+#people .ls-who h3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#people .ls-head .follow { order: 3; width: 100%; justify-content: center; padding: 12px 16px; font-size: 14px; }
 .mail-sheet h3 { padding: 0 44px; font-size: 22px; line-height: 1.2; }
 .mail-sheet .mp-sub { margin: 2px 0 14px; }
 .mail-sheet { padding-bottom: 22px; }
