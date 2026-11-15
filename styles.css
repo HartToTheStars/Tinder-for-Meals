@@ -504,3 +504,27 @@ button.kept-by { cursor: pointer; }
   #view-kept .story small { display: none; }
   body:has(#view-kept.is-active .others:not([hidden])) .foot { padding-bottom: 120px; }
 }
+
+/* phone: the Swipe screen fits the viewport exactly, buttons always visible, no scrolling */
+@media (max-width: 999px) {
+  body.home:has(#view-swipe.is-active) { height: 100dvh; overflow: hidden; }
+  .home:has(#view-swipe.is-active) .app { height: 100dvh; min-height: 0; }
+  .home:has(#view-swipe.is-active) main { min-height: 0; }
+  .home #view-swipe.is-active { min-height: 0; }
+  .home:has(#view-swipe.is-active) .foot { display: none; }
+  .home .top { padding: 12px 0 10px; }
+  .home #view-swipe .cats { margin-bottom: 10px; }
+  .home #view-swipe .cat { padding: 6px 2px 5px; }
+  .home #view-swipe .tags { margin-bottom: 12px; }
+  .home #view-swipe .deck { flex: 1 1 auto; min-height: 0; max-height: none; margin-bottom: 26px; }
+  .home #view-swipe .hint { display: none; }
+  .home #view-swipe .actions { padding: 2px 0 calc(12px + env(safe-area-inset-bottom)); }
+  .home .card h2 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+}
+/* short phones: smaller title and buttons */
+@media (max-width: 999px) and (max-height: 720px) {
+  .home .card h2 { font-size: 23px; }
+  .home .card p { display: none; }
+  .home .act-nope, .home .act-like { width: 60px; height: 60px; }
+  .home .act { width: 46px; height: 46px; }
+}
