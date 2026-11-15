@@ -560,3 +560,12 @@ button.kept-by { cursor: pointer; }
 .card.gone { filter: none; }
 .home #view-swipe .deck { margin-bottom: 18px; }
 .acct-privacy { display: block; margin-top: 0 !important; padding-bottom: 2px; text-underline-offset: 2px; }
+
+/* desktop header: Share my keeps / Save your keeps pill beside the avatar */
+.top-share { display: none; }
+@media (min-width: 1000px) {
+  .top-share { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 13px; border-radius: 999px; font: 500 14px Inter, system-ui, sans-serif; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); transition: background .2s, transform .15s; margin-right: 4px; }
+  .top-share:hover { background: var(--paper); }
+  .top-share:active { transform: scale(.97); }
+  .top-share .ic, .top-share svg { width: 17px; height: 17px; }
+}

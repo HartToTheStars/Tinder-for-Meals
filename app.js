@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "/icons.js?v=45";
+import { icon } from "/icons.js?v=46";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -797,6 +797,15 @@ $("#acctCopy").addEventListener("click", async () => {
   clearTimeout(b._t);
   b._t = setTimeout(() => { b.innerHTML = icon("copy"); b.classList.remove("done"); }, 1600);
 });
+$("#topShare").addEventListener("click", async () => {
+  if (!state.user) return openSave("manual");
+  if (!state.me?.share_code) { ls.del(`forks:nameLater:${state.user.id}`); return askName(); }
+  try {
+    if (navigator.share) { await navigator.share({ title: `${state.me.name}'s keeps on forks.`, text: `${state.me.name}'s keeps on forks. Swipe right on dinner.`, url: myLink() }); return; }
+  } catch (err) { if (err?.name === "AbortError") return; }
+  try { await navigator.clipboard.writeText(myLink()); toast("Link copied"); }
+  catch { prompt("Copy this link", myLink()); }
+});
 $("#acctDone").addEventListener("click", () => closeSheet("#acct"));
 // Delete account: tap once to arm, again to confirm.
 $("#acctDelete").addEventListener("click", async () => {
@@ -832,6 +841,9 @@ function updateAcct() {
   $("#acctIcon").innerHTML = me ? avatar(me.name, "hd", me.color) : icon("circle-user-round");
   $("#acctBtn").setAttribute("aria-label", state.user ? `Signed in as ${state.user.email}` : "Save your keeps");
   $("#acctDot").hidden = !!state.user || !guest.kept.length;
+  // Desktop header pill: "Share my keeps" when signed in, "Save your keeps" for guests.
+  $("#topShareIc").innerHTML = icon(state.user ? "share" : "bookmark");
+  $("#topShareText").textContent = state.user ? "Share my keeps" : "Save your keeps";
 }
 
 // Auth state drives whose swipes we show.
