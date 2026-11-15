@@ -738,7 +738,16 @@ async function removeKeep(row) {
 // Keeps rows: swipe left to remove, swipe right to open the recipe in a new tab. Vertical scrolling still works.
 (() => {
   const list = $("#list");
-  let drag = null, eatClick = false;
+  let drag = null, eatClick = false, pendingOpen = null;
+  // Open like a real link tap. iPhone Safari only allows a new tab from certain events: for touch we wait for
+  // touchend (which it accepts; pointerup it silently blocks), for mouse pointerup is fine.
+  const openTab = (url) => {
+    const a = document.createElement("a");
+    a.href = url; a.target = "_blank"; a.rel = "noopener";
+    document.body.append(a);
+    a.click();
+    a.remove();
+  };
   const threshold = (item) => Math.min(110, item.offsetWidth * 0.3);
   const paint = (d, dx) => {
     d.item.style.transform = `translateX(${dx}px)`;
@@ -788,10 +797,19 @@ async function removeKeep(row) {
     }
     if (e.type === "pointerup" && d.dx > th) {
       const r = state.kept.find((x) => x.id === d.row.dataset.id);
-      if (r) window.open(r.url, "_blank", "noopener");
+      if (r && e.pointerType === "touch") {
+        pendingOpen = r.url;
+        setTimeout(() => { pendingOpen = null; }, 600);
+      } else if (r) openTab(r.url);
     }
     settle(d);
   };
+  list.addEventListener("touchend", () => {
+    if (!pendingOpen) return;
+    const url = pendingOpen;
+    pendingOpen = null;
+    openTab(url);
+  });
   list.addEventListener("pointerup", end);
   list.addEventListener("pointercancel", end);
   // Links and images would start a native drag and steal the gesture.
