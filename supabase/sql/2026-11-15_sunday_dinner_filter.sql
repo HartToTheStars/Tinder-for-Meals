@@ -99,3 +99,8 @@ begin
 end;
 $function$;
 revoke all on function public.meals_sunday_digest(uuid) from public, anon, authenticated;
+
+-- Applied as migration meals_is_dinner_starters: starters that were filed as main.
+-- Adds to meals_is_dinner's exclusions: titles starting with "burrata", caprese, crostini,
+-- bruschetta, board(s), platter, melon. Keeps e.g. "Burrata Cheese Stuffed Spicy Meatball Subs".
+--   or t ~* '(^\s*burrata|caprese|crostini|bruschetta|\mboards?\M|platter|\mmelon)'
