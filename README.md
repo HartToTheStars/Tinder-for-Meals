@@ -9,7 +9,7 @@ Tinder for meals. Swipe right to keep a recipe, left to pass. Kept recipes live 
 Keys: ← pass, → keep, ↑ open recipe, Backspace undo, `/` search.
 
 ## Taste model
-Every 10 swipes the app calls `meals_refine()`, which recomputes `meals_taste`: a shrunk log-odds weight per title word and per source, built from all keeps vs. passes. `meals_deck()` ranks unseen recipes by summed token weight plus random jitter, so favorites rise and there's still room to discover.
+Every 10 swipes the app calls `meals_refine()`, which recomputes `meals_taste`: a shrunk log-odds weight per title word and per source, built from all keeps vs. passes. `meals_deck()` ranks unseen recipes by summed token weight plus random jitter, so favorites rise and there's still room to discover. The source token only counts for 35%, and each extra card from the same site in a batch ranks a little lower, so one favorite site can't take over the deck.
 
 ## Courses
 `meals_recipes.category` is a generated column from `meals_category()` (keyword rules on the title): `main`, `appetizer`, `dessert`, `drink`. The swipe view filters with `meals_deck(n, sources, cat)`; the choice is remembered per device.
