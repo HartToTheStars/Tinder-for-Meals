@@ -618,3 +618,19 @@ a.src-row:hover { background: var(--bg); }
   .tags.at-end { -webkit-mask-image: none; mask-image: none; }
   .tags .tag:last-child { margin-right: 4px; }
 }
+
+/* Keeps rows: swipe left to remove, right to open. The card slides over a colored panel. */
+.swipe-row { position: relative; border-radius: 18px; overflow: hidden; }
+.swipe-row > .item { position: relative; z-index: 1; touch-action: pan-y; }
+.swipe-row > .item.snapping { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.swipe-row.leaving { animation: leave .3s ease forwards; }
+.swipe-bg { position: absolute; inset: 0; display: flex; align-items: center; gap: 8px; padding: 0 22px; color: #fff; font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none; }
+.swipe-bg svg { width: 20px; height: 20px; stroke-width: 2.2; transition: transform .2s cubic-bezier(.3,1.6,.5,1); }
+.swipe-open { background: var(--basil); justify-content: flex-start; }
+.swipe-del { background: var(--tomato); justify-content: flex-end; }
+.swipe-row.armed .swipe-bg svg { transform: scale(1.3); }
+
+/* Toast with an action (Undo) */
+.toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 14px; padding-right: 8px; }
+.toast-act { font: inherit; font-weight: 700; color: var(--tomato); padding: 6px 10px; border-radius: 999px; }
+.toast-act:hover { background: rgb(232 85 62 / .12); }

@@ -38,12 +38,21 @@ const ls = {
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 let toastTimer;
-function toast(msg) {
+function toast(msg, action) {
   const t = $("#toast");
   t.textContent = msg;
+  t.classList.toggle("has-action", !!action);
+  if (action) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "toast-act";
+    b.textContent = action.label;
+    b.onclick = () => { clearTimeout(toastTimer); t.classList.remove("show"); action.run(); };
+    t.append(b);
+  }
   t.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
+  toastTimer = setTimeout(() => t.classList.remove("show"), action ? 4500 : 2200);
 }
 function hearts(x, y) {
   const colors = ["#e8553e", "#3f9b6b", "#e9a23b", "#e8553e"];
@@ -111,6 +120,17 @@ const store = {
     if (state.user) return (await db.from("meals_user_swipes").update({ liked: false }).eq("recipe_id", id)).error;
     guest.swipes[id] = false;
     guest.kept = guest.kept.filter((r) => r.id !== id);
+    saveGuest();
+    return null;
+  },
+  async rekeep(r) {
+    if (state.user) {
+      return (await db.from("meals_user_swipes").upsert(
+        { user_id: state.user.id, recipe_id: r.id, liked: true, swiped_at: r.swiped_at || new Date().toISOString() },
+        { onConflict: "user_id,recipe_id" })).error;
+    }
+    guest.swipes[r.id] = true;
+    guest.kept = [slim(r), ...guest.kept.filter((x) => x.id !== r.id)];
     saveGuest();
     return null;
   },
@@ -644,17 +664,22 @@ function renderKept() {
   $("#list").innerHTML = rows.map((r, i) => {
     const t = tagIcons(r, 4);
     return `
-    <li class="item${r.id === state.freshId ? " fresh" : ""}" data-id="${r.id}" style="animation-delay:${r.id === state.freshId ? 0 : Math.min(i, 12) * 20}ms">
-      <img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" />
-      <a href="${esc(r.url)}" target="_blank" rel="noopener">
+    <li class="swipe-row" data-id="${r.id}">
+      <span class="swipe-bg swipe-open" aria-hidden="true">${icon("external-link")}<b>Open</b></span>
+      <span class="swipe-bg swipe-del" aria-hidden="true"><b>Remove</b>${icon("x")}</span>
+      <div class="item${r.id === state.freshId ? " fresh" : ""}" data-id="${r.id}" style="animation-delay:${r.id === state.freshId ? 0 : Math.min(i, 12) * 20}ms">
+      <img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" />
+      <a href="${esc(r.url)}" target="_blank" rel="noopener" draggable="false">
         <h4>${highlight(r.title, state.query.split(/\s+/).filter(Boolean))}</h4>
         <small>${esc(r.source)}${t.length ? `<span class="mini">${t.map((k) => `<span title="${TAG[k].l}">${icon(TAG[k].i)}</span>`).join("")}</span>` : ""}</small>
       </a>
       <button class="sh" aria-label="Share ${esc(r.title)}" title="Share">${icon("share")}</button>
       <button class="rm" aria-label="Remove ${esc(r.title)}" title="Remove">${icon("x")}</button>
+      </div>
     </li>`;
   }).join("");
   state.freshId = null;
+  maybeHintKeepSwipe();
   renderFeatured();
 
   const empty = $("#keptEmpty");
@@ -680,18 +705,116 @@ $("#list").addEventListener("click", async (e) => {
   if (share) return shareRecipe(state.kept.find((r) => r.id === share.closest(".item").dataset.id));
   const btn = e.target.closest(".rm");
   if (!btn) return;
-  const li = btn.closest(".item");
-  const id = li.dataset.id;
-  li.classList.add("leaving");
-  setTimeout(() => {
-    state.kept = state.kept.filter((r) => r.id !== id);
+  removeKeep(btn.closest(".swipe-row"));
+});
+
+async function removeKeep(row) {
+  const id = row.dataset.id;
+  const r = state.kept.find((x) => x.id === id);
+  if (!r) return;
+  const at = state.kept.indexOf(r);
+  row.classList.add("leaving");
+  const gone = new Promise((done) => setTimeout(() => {
+    state.kept = state.kept.filter((x) => x.id !== id);
     updateCount();
     renderKept();
-  }, 280);
+    done();
+  }, 280));
   const error = await store.unkeep(id);
-  toast(error ? "Couldn't remove that" : "Removed");
+  if (error) return toast("Couldn't remove that");
+  toast("Removed", { label: "Undo", run: async () => {
+    await gone;
+    if (state.kept.some((x) => x.id === id)) return;
+    state.kept.splice(Math.min(at, state.kept.length), 0, r);
+    updateCount();
+    renderKept();
+    const err = await store.rekeep(r);
+    if (err) toast("Couldn't put that back");
+    updateAcct();
+  } });
   updateAcct();
-});
+}
+
+// Keeps rows: swipe left to remove, swipe right to open the recipe in a new tab. Vertical scrolling still works.
+(() => {
+  const list = $("#list");
+  let drag = null, eatClick = false;
+  const threshold = (item) => Math.min(110, item.offsetWidth * 0.3);
+  const paint = (d, dx) => {
+    d.item.style.transform = `translateX(${dx}px)`;
+    d.open.style.opacity = dx > 0 ? Math.min(1, dx / 60) : 0;
+    d.del.style.opacity = dx < 0 ? Math.min(1, -dx / 60) : 0;
+    d.row.classList.toggle("armed", Math.abs(dx) > threshold(d.item));
+  };
+  const settle = (d) => {
+    d.item.classList.add("snapping");
+    paint(d, 0);
+    d.row.classList.remove("armed");
+    setTimeout(() => d.item.classList.remove("snapping"), 320);
+  };
+  list.addEventListener("pointerdown", (e) => {
+    const item = e.target.closest(".swipe-row > .item");
+    if (!item || e.button > 0 || e.target.closest(".sh, .rm")) return;
+    const row = item.parentElement;
+    drag = { item, row, open: row.querySelector(".swipe-open"), del: row.querySelector(".swipe-del"), x: e.clientX, y: e.clientY, dx: 0, on: false, pid: e.pointerId };
+  });
+  list.addEventListener("pointermove", (e) => {
+    const d = drag;
+    if (!d || e.pointerId !== d.pid) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (!d.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { drag = null; return; } // it's a scroll
+      if (Math.abs(dx) < 10) return;
+      d.on = true;
+      d.item.classList.remove("snapping");
+      try { d.item.setPointerCapture(e.pointerId); } catch { /* fine */ }
+    }
+    d.dx = dx;
+    paint(d, dx);
+  });
+  const end = (e) => {
+    const d = drag;
+    drag = null;
+    if (!d || !d.on) return;
+    eatClick = true;
+    setTimeout(() => { eatClick = false; }, 400);
+    const th = threshold(d.item);
+    if (e.type === "pointerup" && d.dx < -th) {
+      d.item.classList.add("snapping");
+      d.item.style.transform = "translateX(-110%)";
+      d.del.style.opacity = 1;
+      removeKeep(d.row);
+      return;
+    }
+    if (e.type === "pointerup" && d.dx > th) {
+      const r = state.kept.find((x) => x.id === d.row.dataset.id);
+      if (r) window.open(r.url, "_blank", "noopener");
+    }
+    settle(d);
+  };
+  list.addEventListener("pointerup", end);
+  list.addEventListener("pointercancel", end);
+  // Links and images would start a native drag and steal the gesture.
+  list.addEventListener("dragstart", (e) => { if (e.target.closest(".swipe-row")) e.preventDefault(); });
+  // A swipe is not a tap: don't follow the recipe link after one.
+  list.addEventListener("click", (e) => { if (eatClick) { e.preventDefault(); e.stopPropagation(); } }, true);
+})();
+
+// First time on Keeps with something kept: the top row peeks right (Open) then left (Remove), once.
+function maybeHintKeepSwipe() {
+  if (ls.get("forks:keepSwipeHint", false) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const row = $("#list .swipe-row");
+  if (!row || $("#view-kept").offsetParent === null) return;
+  ls.set("forks:keepSwipeHint", true);
+  const item = row.querySelector(".item"), open = row.querySelector(".swipe-open"), del = row.querySelector(".swipe-del");
+  const opts = { duration: 1600, delay: 500, easing: "cubic-bezier(.45,0,.25,1)" };
+  item.animate([
+    { transform: "translateX(0)" }, { transform: "translateX(64px)", offset: 0.25 }, { transform: "translateX(64px)", offset: 0.4 },
+    { transform: "translateX(-64px)", offset: 0.65 }, { transform: "translateX(-64px)", offset: 0.8 }, { transform: "translateX(0)" },
+  ], opts);
+  open.animate([{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.4 }, { opacity: 0, offset: 0.5 }, { opacity: 0 }], opts);
+  del.animate([{ opacity: 0 }, { opacity: 0, offset: 0.5 }, { opacity: 1, offset: 0.65 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], opts);
+}
 $("#emptyGo").addEventListener("click", () => {
   if (state.kept.length && state.keptWant.size) {
     state.want = new Set(state.keptWant);
@@ -1217,7 +1340,7 @@ function show(view) {
   });
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("is-active", v.id === `view-${view}`));
   ls.set("forks:view", view);
-
+  if (view === "kept") requestAnimationFrame(maybeHintKeepSwipe);
 }
 document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => show(t.dataset.view)));
 $("#logoBtn").addEventListener("click", () => { show("swipe"); window.scrollTo({ top: 0, behavior: "smooth" }); });
