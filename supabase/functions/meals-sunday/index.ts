@@ -36,6 +36,11 @@ function dateLine(d = new Date()) {
   return `${weekday}, ${month} ${ordinal(day)}`;
 }
 const weekday = (iso: string) => new Date(iso).toLocaleDateString("en-US", { weekday: "long", timeZone: "America/New_York" });
+// Some sources (Smitten Kitchen) publish all-lowercase titles; title-case those, leave the rest alone.
+const SMALL = new Set(["a", "an", "and", "as", "at", "but", "by", "for", "in", "of", "on", "or", "the", "to", "with"]);
+const tc = (t: string) => t && t === t.toLowerCase()
+  ? t.split(" ").map((w, i) => i && SMALL.has(w) ? w : w.replace(/^(\W*)(\p{L})/u, (_m, a, b) => a + b.toUpperCase())).join(" ")
+  : t;
 const list = (names: string[]) => names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 
 function preview(d: Digest) {
@@ -153,6 +158,8 @@ Deno.serve(async (req) => {
     const { data: d, error } = await db.rpc("meals_sunday_digest", { p_user: uid });
     if (error || !d) { results.push({ user: uid, skipped: error?.message ?? "no profile" }); continue; }
     const digest = d as Digest;
+    if (digest.pick) digest.pick.title = tc(digest.pick.title);
+    for (const pp of digest.people ?? []) for (const r of pp.recipes) r.title = tc(r.title);
     if (!digest.pick || !digest.email) { results.push({ user: uid, skipped: "nothing to pick" }); continue; }
     const mail = render(digest);
     if (dry) { results.push({ user: uid, subject: mail.subject, preview: mail.preview, html: mail.html }); continue; }
