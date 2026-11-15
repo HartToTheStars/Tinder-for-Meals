@@ -44,6 +44,11 @@ if (/\.here\.now$/.test(location.hostname) && !location.hostname.startsWith("hum
   badge.className = "env-badge";
   badge.textContent = "Staging";
   document.body.append(badge);
+  // Keep staging out of search results so it never competes with forkslist.com.
+  const robots = document.createElement("meta");
+  robots.name = "robots";
+  robots.content = "noindex, nofollow";
+  document.head.append(robots);
 }
 
 function toast(msg, action) {

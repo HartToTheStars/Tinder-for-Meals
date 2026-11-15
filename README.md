@@ -35,7 +35,7 @@ Every profile has a random `share_code` (3 letters + 4 digits). `forkslist.com/<
 
 Changes go to staging first, then production.
 
-1. `python3 tools/publish.py` publishes to **staging** (password-protected, shows a blue "Staging" badge). Try it on a phone.
+1. `python3 tools/publish.py` publishes to **staging**, https://bright-jasper-8752.here.now (anyone with the link can open it; it shows a blue "Staging" badge and asks search engines not to index it). Try it on a phone.
 2. `python3 tools/publish.py --prod` publishes to **production** (forkslist.com). Nothing reaches real users without `--prod`.
 3. Something wrong in production? `python3 tools/rollback.py --previous` puts the previous version back instantly. `python3 tools/rollback.py` lists recent versions.
 

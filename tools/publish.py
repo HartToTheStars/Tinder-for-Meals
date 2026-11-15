@@ -1,6 +1,6 @@
 """Publish forks to here.now.
 
-  python3 tools/publish.py            -> STAGING (password-protected, shows a "Staging" badge)
+  python3 tools/publish.py            -> STAGING (https://bright-jasper-8752.here.now, shows a "Staging" badge)
   python3 tools/publish.py --prod     -> PRODUCTION (https://forkslist.com)
   python3 tools/rollback.py           -> put production back to its previous version
 
@@ -14,7 +14,7 @@ finalize this waits and checks the Site's live version instead of reporting fail
 import hashlib, json, mimetypes, os, sys, time, urllib.error, urllib.request
 
 PROD_SLUG = "humble-aura-cbq3"        # https://forkslist.com
-STAGING_SLUG = "bright-jasper-8752"  # https://bright-jasper-8752.here.now (password-protected)
+STAGING_SLUG = "bright-jasper-8752"  # https://bright-jasper-8752.here.now (open link, not indexed)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = ["index.html", "styles.css", "app.js", "icons.js", "privacy.html", "sources.html", "lab.html"]
 KEY = os.environ.get("HERENOW_API_KEY", "proxy-injected")
