@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "/icons.js?v=34";
+import { icon } from "/icons.js?v=36";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -508,13 +508,13 @@ function renderKept() {
     $("#keptTags")._sig = sig;
     renderTagRow($("#keptTags"), state.keptWant, onKeptWant, avail);
   }
-  $(".search").hidden = !has;
+  // Search lives behind the icon next to "Your keeps."; it stays open while there's a query.
+  $("#searchToggle").hidden = !has;
+  $(".search").hidden = !has || !(state.searchOpen || state.query);
   const inCat = (r) => (!state.keptCat || (r.category || "main") === state.keptCat) && [...state.keptWant].every((t) => (r.tags || []).includes(t));
-  const sources = ["All", ...new Set(state.kept.filter(inCat).map((r) => r.source))];
-  if (!sources.includes(state.source)) state.source = "All";
-  $("#chips").innerHTML = sources.length > 2
-    ? sources.map((s) => `<button class="chip ${s === state.source ? "is-active" : ""}" data-source="${esc(s)}">${esc(s)}</button>`).join("")
-    : "";
+  // No source-site filter on Keeps (course and diet filters are enough).
+  state.source = "All";
+  $("#chips").innerHTML = "";
 
   const terms = norm(state.query).split(/\s+/).filter(Boolean);
   const rows = state.kept.filter((r) => {
@@ -1067,6 +1067,17 @@ $("#nameSkip").addEventListener("click", () => {
   closeSheet("#nameSheet");
 });
 
+// ---------- search toggle ----------
+function toggleSearch(open = !state.searchOpen) {
+  state.searchOpen = open;
+  if (!open) { state.query = ""; $("#search").value = ""; }
+  $("#searchToggle").classList.toggle("is-on", open);
+  $("#searchToggle").setAttribute("aria-expanded", open);
+  renderKept();
+  if (open) setTimeout(() => $("#search").focus(), 30);
+}
+$("#searchToggle").addEventListener("click", () => toggleSearch());
+
 // ---------- tabs & keys ----------
 function show(view) {
   document.querySelectorAll(".tab").forEach((t) => {
@@ -1076,7 +1087,7 @@ function show(view) {
   });
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("is-active", v.id === `view-${view}`));
   ls.set("forks:view", view);
-  if (view === "kept") setTimeout(() => matchMedia("(hover: hover)").matches && $("#search").focus(), 50);
+
 }
 document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => show(t.dataset.view)));
 $("#logoBtn").addEventListener("click", () => { show("swipe"); window.scrollTo({ top: 0, behavior: "smooth" }); });
@@ -1092,9 +1103,12 @@ document.addEventListener("keydown", (e) => {
   if (!$("#people").hidden) { if (e.key === "Escape") closeSheet("#people"); return; }
   if (!$("#landing").hidden) { if (e.key === "Escape" || e.key === "Enter") $("#landGo").click(); return; }
   if (!$("#nameSheet").hidden) { if (e.key === "Escape") closeSheet("#nameSheet"); return; }
-  if (e.target.matches("input")) { if (e.key === "Escape") e.target.blur(); return; }
+  if (e.target.matches("input")) {
+    if (e.key === "Escape") { if (e.target.id === "search" && !e.target.value) toggleSearch(false); e.target.blur(); }
+    return;
+  }
   if (!$("#view-swipe").classList.contains("is-active")) {
-    if (e.key === "/") { e.preventDefault(); $("#search").focus(); }
+    if (e.key === "/") { e.preventDefault(); toggleSearch(true); }
     return;
   }
   if (e.key.startsWith("Arrow")) e.preventDefault(); // arrows swipe, never scroll
@@ -1112,6 +1126,7 @@ $("#btnOpen").innerHTML = icon("external-link");
 $("#acctIcon").innerHTML = icon("circle-user-round");
 $("#searchIcon").innerHTML = icon("search");
 $("#footHeart").innerHTML = icon("heart");
+$("#searchToggle").innerHTML = icon("search");
 
 const v = ls.get("forks:view", "swipe");
 if (v === "kept") show("kept");

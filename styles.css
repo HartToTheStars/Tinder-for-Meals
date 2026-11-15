@@ -464,3 +464,12 @@ button.kept-by { cursor: pointer; }
 .share-link .sl-ic:active { transform: scale(.9); }
 .share-link .sl-ic.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
 .share-link .sl-ic.ghost.done { color: var(--basil); box-shadow: inset 0 0 0 1.5px var(--basil); }
+
+/* "Your keeps." heading row with search toggle (phone and desktop) */
+.side-head { display: flex; align-items: center; gap: 8px; margin: 2px 2px 14px; }
+.side-head h2 { font-family: var(--serif); font-size: 22px; letter-spacing: -.01em; }
+.search-toggle { margin-left: auto; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); transition: color .2s, background .2s, transform .15s; }
+.search-toggle svg { width: 18px; height: 18px; }
+.search-toggle:active { transform: scale(.92); }
+.search-toggle.is-on { color: var(--bg); background: var(--ink); box-shadow: none; }
+.search:not([hidden]) { animation: fade .2s ease; }
