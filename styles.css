@@ -550,14 +550,17 @@ button.kept-by { cursor: pointer; }
   .home .act svg { width: 19px; height: 19px; }
 }
 
-/* fanned stack: cards behind the top one tilt out to the left and right */
-.card:nth-last-child(n+2) { transform-origin: 50% 100%; filter: brightness(.82); }
-.card:nth-last-child(2) { transform: translateX(-12px) rotate(-3deg) scale(.97); opacity: 1; }
-.card:nth-last-child(3) { transform: translateX(12px) rotate(3deg) scale(.97); opacity: 1; }
-.card:nth-last-child(4) { transform: translateX(-26px) rotate(-6deg) scale(.94); opacity: 1; filter: brightness(.68); }
-.card:nth-last-child(5) { transform: translateX(26px) rotate(6deg) scale(.94); opacity: 1; filter: brightness(.68); }
-.card:nth-last-child(n+6) { opacity: 0; transform: scale(.9); }
-.card { transition: transform .45s cubic-bezier(.34,1.25,.64,1), opacity .35s, filter .35s, background-color .45s, box-shadow .45s; } /* springy settle as the stack moves up */
+/* fanned stack: cards behind the top one tilt out to the left and right. Each card keeps its side for life
+   (data-side), and depth (data-depth, 0 = top) sets how far out it sits, so the stack slides forward smoothly. */
+.deck .card[data-depth] { transform-origin: 50% 100%; opacity: 1; }
+.deck .card[data-depth="0"] { transform: none; filter: none; }
+.deck .card[data-depth="1"][data-side="l"], .deck .card[data-depth="2"][data-side="l"] { transform: translateX(-12px) rotate(-3deg) scale(.97); filter: brightness(.82); }
+.deck .card[data-depth="1"][data-side="r"], .deck .card[data-depth="2"][data-side="r"] { transform: translateX(12px) rotate(3deg) scale(.97); filter: brightness(.82); }
+.deck .card[data-depth="3"][data-side="l"], .deck .card[data-depth="4"][data-side="l"] { transform: translateX(-26px) rotate(-6deg) scale(.94); filter: brightness(.68); }
+.deck .card[data-depth="3"][data-side="r"], .deck .card[data-depth="4"][data-side="r"] { transform: translateX(26px) rotate(6deg) scale(.94); filter: brightness(.68); }
+.deck .card[data-depth="5"] { opacity: 0; transform: scale(.9); }
+/* Sides alternate as cards are dealt, so each side has a near (depth 1-2) and a far (depth 3-4) card. */
+.card { transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .35s, filter .35s; }
 .card.gone { filter: none; }
 .home #view-swipe .deck { margin-bottom: 18px; }
 .acct-privacy { display: block; margin-top: 0 !important; padding-bottom: 2px; text-underline-offset: 2px; }
@@ -600,10 +603,11 @@ a.src-row:hover { background: var(--bg); }
 .src-again { margin-top: 8px; padding: 10px; color: var(--muted); font-size: 14px; font-weight: 500; }
 .foot-heart { display: inline-flex; }
 
-/* A card whose photo is still loading is see-through, so "Setting the table" (behind the cards) shows; it fades in on load */
-.card > :not(.stamp), .card::after { transition: opacity .45s ease; }
-.card.loading { background: transparent; box-shadow: none; }
-.card.loading > :not(.stamp), .card.loading::after { opacity: 0; }
+/* Each card shows "Setting the table" under its photo; the photo, shade and text fade in once the photo has loaded */
+.card-loader { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 14px; color: var(--muted); font-size: 14px; }
+.card > :not(.stamp):not(.card-loader), .card::after { transition: opacity .45s ease; }
+.card.loading > :not(.stamp):not(.card-loader), .card.loading::after { opacity: 0; }
+.card:not(.loading) .card-loader { visibility: hidden; transition: visibility 0s .5s; }
 
 /* phone: diet/lifestyle filters stay one scrolling row, but clipped to the same edges as the course buttons,
    with a soft fade on the right that says there's more */

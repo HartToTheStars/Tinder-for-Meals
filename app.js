@@ -230,6 +230,7 @@ async function refill() {
 function cardHTML(r) {
   const t = tagIcons(r);
   return `
+    <div class="card-loader" aria-hidden="true"><div class="spinner"></div><p>Setting the table…</p></div>
     <img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" draggable="false" />
     <div class="stamp stamp-like"><span>KEEP</span></div>
     <div class="stamp stamp-nope"><span>NOPE</span></div>
@@ -254,6 +255,7 @@ function render() {
       el = document.createElement("article");
       el.className = dealt ? "card deal" : "card";
       el.dataset.id = r.id;
+      el.dataset.side = (fanSide = fanSide === "l" ? "r" : "l");
       el.innerHTML = cardHTML(r);
       const img = el.querySelector("img");
       if (!img.complete) {
@@ -270,7 +272,9 @@ function render() {
     if (deckEl.lastElementChild !== el) deckEl.appendChild(el);
   });
   // Cards flying away sit first in the DOM (so stack math ignores them) but render on top.
-  deckEl.querySelectorAll(".card.gone").forEach((g) => deckEl.insertBefore(g, deckEl.firstChild));
+  deckEl.querySelectorAll(".card.gone").forEach((g) => { g.removeAttribute("data-depth"); deckEl.insertBefore(g, deckEl.firstChild); });
+  // Depth in the stack drives the fan (0 = top); the side was fixed when the card was made.
+  [...deckEl.querySelectorAll(".card:not(.gone):not(.toss)")].reverse().forEach((c, i) => { c.dataset.depth = Math.min(i, 5); });
 
   const top = topCard();
   if (top) bindDrag(top);
@@ -297,17 +301,13 @@ function render() {
     $("#btnHarvest")?.addEventListener("click", harvest);
     $("#btnAll")?.addEventListener("click", () => setCat(""));
     $("#btnClearTags")?.addEventListener("click", () => { state.want.clear(); onWantChange(); });
-  } else {
-    // Always running behind the cards: a card whose photo is still loading is see-through, so this shows,
-    // and the card fades in over it once the photo arrives.
-    if (!deckMsg.querySelector(".spinner")) deckMsg.innerHTML = `<div class="spinner"></div><p>Setting the table…</p>`;
-    deckMsg.hidden = false;
-  }
+  } else deckMsg.hidden = true; // each card shows its own "Setting the table" until its photo fades in
 
   if (top && !top.classList.contains("loading")) maybeTeach(top);
   if (state.deck.length < 5 && !state.dry && !state.busy) refill();
 }
 
+let fanSide = "r"; // the next card dealt goes on the other side from the last one
 const topCard = () => [...deckEl.querySelectorAll(".card:not(.gone):not(.toss)")].pop();
 
 // Course filter: toss the current cards, deal a fresh hand.
