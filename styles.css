@@ -697,5 +697,6 @@ a.src-row:hover { background: var(--bg); }
 .sheet-x:active { transform: scale(.9); }
 .sheet-x:hover { color: var(--ink); }
 .list-sheet .ls-head { padding-right: 44px; }
-.mail-sheet h3 { padding: 0 44px; margin-bottom: 14px; font-size: 20px; line-height: 36px; }
+.mail-sheet h3 { padding: 0 44px; font-size: 22px; line-height: 1.2; }
+.mail-sheet .mp-sub { margin: 2px 0 14px; }
 .mail-sheet { padding-bottom: 22px; }
