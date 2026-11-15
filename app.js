@@ -1592,6 +1592,240 @@ state.keptWant = loadSet("forks:keptWant");
 renderTagRow($("#tags"), state.want, onWantChange);
 function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", state.keptWant); renderKept(); }
 
+// ---------- Swipe with someone ----------
+// One person starts a round of 12 dinners and sends the link. Everyone swipes the same 12 (no account
+// needed), then sees the dinners they all kept. Keeps from a round also land in your own keeps.
+const TG_NAME = "forks:tgName", TG_ACTIVE = "forks:tgActive";
+const tg = { code: null, pid: null, data: null, poll: null, busy: false };
+const tgPid = (code) => {
+  let id = ls.get(`forks:tg:${code}`, null);
+  if (!id) { id = crypto.randomUUID(); ls.set(`forks:tg:${code}`, id); }
+  return id;
+};
+const tgName = () => state.me?.name || ls.get(TG_NAME, "");
+const tgLink = () => `${location.origin}/?with=${tg.code}`;
+const tgBody = (html) => { $("#tgBody").innerHTML = html; };
+const tgOthers = () => (tg.data?.people || []).filter((p) => !p.me);
+const tgMine = () => Object.keys(tg.data?.mine || {}).length;
+
+$("#withIc").innerHTML = icon("users");
+$("#withBtn").addEventListener("click", () => {
+  const active = ls.get(TG_ACTIVE, null);
+  if (active) return openTogether(active, { resume: true });
+  tg.code = null; tg.data = null;
+  tgIntro();
+  openSheet("#together");
+});
+$("#tgClose").addEventListener("click", closeTogether);
+$("#together").addEventListener("click", (e) => { if (e.target.id === "together") closeTogether(); });
+function closeTogether() { clearInterval(tg.poll); tg.poll = null; closeSheet("#together"); }
+
+// Start screen (host) or invite screen (someone who opened the link).
+function tgIntro() {
+  const guest = !!tg.data && !tg.data.is_host;
+  const name = tgName();
+  tgBody(`
+    <div class="tg-icon">${icon("users")}</div>
+    <h3 id="tgTitle">${guest ? `${esc(tg.data.host_name)} wants to pick dinner with you` : "Swipe with someone"}</h3>
+    <p class="tg-lead">${guest ? "Swipe 12 dinners. We'll show you the ones you both want." : "You both swipe the same 12 dinners. We'll show you the ones you both want."}</p>
+    <form class="tg-form" id="tgForm" novalidate>
+      <input class="tg-name" id="tgName" type="text" autocomplete="given-name" maxlength="24" placeholder="Your first name" value="${esc(name)}" ${name ? "" : "autofocus"} aria-label="Your first name" />
+      <button class="btn tg-go" type="submit">${guest ? "Start swiping" : "Start a round"}</button>
+    </form>`);
+  $("#tgForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const n = $("#tgName").value.trim();
+    if (!n) { $("#tgName").focus(); return toast("Add your first name so they know it's you"); }
+    if (!state.me?.name) ls.set(TG_NAME, n);
+    if (guest) return tgSwipe();
+    const btn = e.submitter || $(".tg-go");
+    btn.disabled = true; btn.textContent = "Setting the table…";
+    const pid = crypto.randomUUID();
+    const { data: code, error } = await db.rpc("meals_together_create", { p_participant: pid, p_name: n });
+    if (error || !code) { btn.disabled = false; btn.textContent = "Start a round"; return toast("Couldn't start a round. Try again?"); }
+    ls.set(`forks:tg:${code}`, pid);
+    ls.set(TG_ACTIVE, code);
+    await openTogether(code, { fresh: true });
+  });
+}
+
+async function tgFetch() {
+  const { data, error } = await db.rpc("meals_together_get", { p_code: tg.code, p_participant: tg.pid });
+  if (error) { console.error(error); return null; }
+  return data;
+}
+
+async function openTogether(code, { fresh = false, resume = false } = {}) {
+  tg.code = code; tg.pid = tgPid(code);
+  if ($("#together").hidden) { tgBody(`<div class="tg-wait"><div class="spinner"></div></div>`); openSheet("#together"); }
+  const data = await tgFetch();
+  if (!data) {
+    if (ls.get(TG_ACTIVE, null) === code) ls.del(TG_ACTIVE);
+    if (resume) { tg.code = null; tg.data = null; return tgIntro(); }
+    closeTogether();
+    return toast("That round has ended. Start your own!");
+  }
+  tg.data = data;
+  if (!data.is_host && !tgMine()) return tgIntro();
+  if (data.is_host && fresh) return tgInvite();
+  tgNext();
+}
+
+// Host, right after starting: send the link first (it's the point), then swipe.
+function tgInvite() {
+  tgBody(`
+    <div class="tg-icon">${icon("share")}</div>
+    <h3 id="tgTitle">Send the link</h3>
+    <p class="tg-lead">Whoever opens it swipes the same 12. No account needed.</p>
+    <div class="share-link tg-link"><span class="sl-text"><b>Your round</b><small>${esc(tgLink().replace(/^https?:\/\//, ""))}</small></span>
+      <button class="sl-ic ghost" id="tgCopy" type="button" aria-label="Copy link">${icon("copy")}</button>
+      <button class="sl-ic" id="tgShare" type="button" aria-label="Share link">${icon("share")}</button></div>
+    <button class="btn tg-go" id="tgStart" type="button">Start my 12</button>`);
+  $("#tgShare").addEventListener("click", tgShareLink);
+  $("#tgCopy").addEventListener("click", tgCopyLink);
+  $("#tgStart").addEventListener("click", tgSwipe);
+}
+async function tgShareLink() {
+  const text = `Help me pick dinner? Swipe 12 on forks and we'll see which ones we both want.`;
+  try { if (navigator.share) { await navigator.share({ title: "Swipe dinner with me", text, url: tgLink() }); return; } }
+  catch (err) { if (err?.name === "AbortError") return; }
+  tgCopyLink();
+}
+async function tgCopyLink() {
+  try { await navigator.clipboard.writeText(tgLink()); toast("Link copied"); }
+  catch { prompt("Copy this link", tgLink()); }
+}
+
+function tgSwipe() { tgNext(); }
+
+// Next unswiped card, or the waiting / reveal screen when you're done.
+function tgNext() {
+  clearInterval(tg.poll); tg.poll = null;
+  const d = tg.data, mine = d.mine || {};
+  const r = (d.recipes || []).find((x) => !(x.id in mine));
+  if (!r) return tgDone();
+  const n = tgMine() + 1;
+  tgBody(`
+    <div class="tg-top"><b id="tgTitle">${n} of ${d.total}</b><button class="tg-invite" id="tgInvite" type="button">${icon("user-plus")}Invite</button></div>
+    <div class="tg-bar"><i style="width:${((n - 1) / d.total) * 100}%"></i></div>
+    <article class="tg-card" id="tgCard">
+      <img src="${esc(clean(r).image)}" alt="" referrerpolicy="no-referrer" draggable="false" />
+      <span class="tg-stamp tg-yes">KEEP</span><span class="tg-stamp tg-no">NOPE</span>
+      <div class="tg-info"><span class="source">${esc(r.source)}</span><h4>${esc(clean(r).title)}</h4></div>
+    </article>
+    <div class="tg-acts">
+      <button class="act act-nope" id="tgNope" aria-label="Nope">${icon("x")}</button>
+      <button class="act act-like" id="tgLike" aria-label="Keep">${icon("heart")}</button>
+    </div>`);
+  const next = d.recipes.find((x) => !(x.id in mine) && x.id !== r.id);
+  if (next) preload(clean(next).image);
+  $("#tgInvite").addEventListener("click", tgShareLink);
+  $("#tgNope").addEventListener("click", () => tgVote(r, false));
+  $("#tgLike").addEventListener("click", () => tgVote(r, true));
+  tgDrag($("#tgCard"), r);
+}
+
+function tgDrag(card, r) {
+  let x0 = null, dx = 0;
+  card.addEventListener("pointerdown", (e) => { x0 = e.clientX; dx = 0; card.setPointerCapture(e.pointerId); card.style.transition = "none"; });
+  card.addEventListener("pointermove", (e) => {
+    if (x0 == null) return;
+    dx = e.clientX - x0;
+    card.style.transform = `translateX(${dx}px) rotate(${dx / 18}deg)`;
+    card.style.setProperty("--yes", Math.max(0, Math.min(1, dx / 90)));
+    card.style.setProperty("--no", Math.max(0, Math.min(1, -dx / 90)));
+  });
+  const up = () => {
+    if (x0 == null) return;
+    x0 = null; card.style.transition = "";
+    if (Math.abs(dx) > 90) return tgVote(r, dx > 0);
+    card.style.transform = ""; card.style.setProperty("--yes", 0); card.style.setProperty("--no", 0);
+  };
+  card.addEventListener("pointerup", up);
+  card.addEventListener("pointercancel", up);
+}
+
+async function tgVote(r, liked) {
+  if (tg.busy) return;
+  tg.busy = true;
+  const card = $("#tgCard");
+  if (card) { card.style.transition = "transform .3s ease, opacity .3s ease"; card.style.transform = `translateX(${liked ? 120 : -120}%) rotate(${liked ? 14 : -14}deg)`; card.style.opacity = "0"; }
+  const name = tgName() || $("#tgName")?.value || "Someone";
+  const [{ data: ok, error }] = await Promise.all([
+    db.rpc("meals_together_vote", { p_code: tg.code, p_participant: tg.pid, p_name: name, p_recipe: r.id, p_liked: liked }),
+    new Promise((res) => setTimeout(res, 260)),
+  ]);
+  tg.busy = false;
+  if (error || !ok) { toast("Couldn't save that one. Try again?"); return tgNext(); }
+  tg.data.mine = { ...tg.data.mine, [r.id]: liked };
+  if (liked) {
+    // Your keeps from a round are real keeps.
+    const rr = clean(r);
+    if (!state.kept.some((k) => k.id === rr.id)) { state.kept = [rr, ...state.kept]; updateCount(); renderKept(); }
+    store.swipe(rr, true);
+  }
+  tgNext();
+}
+
+async function tgDone() {
+  const fresh = await tgFetch();
+  if (fresh) tg.data = fresh;
+  const d = tg.data;
+  if (d.done >= 2) return tgReveal();
+  const others = tgOthers();
+  const waitingOn = others.length ? others.map((p) => esc(p.name)).join(" and ") : null;
+  tgBody(`
+    <div class="tg-icon tg-pulse">${icon("users")}</div>
+    <h3 id="tgTitle">Your 12 are in</h3>
+    <p class="tg-lead">${waitingOn
+      ? `Waiting on ${waitingOn} (${others.map((p) => `${p.n} of ${d.total}`).join(", ")}). Your matches show up here when they finish.`
+      : "Now send the link. Your matches show up here as soon as someone finishes their 12."}</p>
+    <div class="share-link tg-link"><span class="sl-text"><b>Your round</b><small>${esc(tgLink().replace(/^https?:\/\//, ""))}</small></span>
+      <button class="sl-ic ghost" id="tgCopy" type="button" aria-label="Copy link">${icon("copy")}</button>
+      <button class="sl-ic" id="tgShare" type="button" aria-label="Share link">${icon("share")}</button></div>
+    <p class="tg-foot">Your keeps from this round are saved to Keeps.</p>`);
+  $("#tgShare").addEventListener("click", tgShareLink);
+  $("#tgCopy").addEventListener("click", tgCopyLink);
+  clearInterval(tg.poll);
+  tg.poll = setInterval(async () => {
+    if ($("#together").hidden) { clearInterval(tg.poll); tg.poll = null; return; }
+    const d2 = await tgFetch();
+    if (!d2) return;
+    const changed = JSON.stringify(d2.people) !== JSON.stringify(tg.data.people);
+    tg.data = d2;
+    if (d2.done >= 2) { clearInterval(tg.poll); tg.poll = null; tgReveal(); }
+    else if (changed) tgDone();
+  }, 4000);
+}
+
+function tgReveal() {
+  const d = tg.data;
+  const finished = (d.people || []).filter((p) => !p.me && p.n >= d.total).map((p) => p.name);
+  const who = finished.length ? `You and ${finished.length === 1 ? esc(finished[0]) : `${finished.slice(0, -1).map(esc).join(", ")} and ${esc(finished.at(-1))}`}` : "You";
+  const byId = new Map((d.recipes || []).map((r) => [r.id, clean(r)]));
+  const matches = (d.matches || []).map((id) => byId.get(id)).filter(Boolean);
+  if (ls.get(TG_ACTIVE, null) === tg.code) ls.del(TG_ACTIVE);
+  if (!matches.length) {
+    tgBody(`
+      <div class="tg-icon">${icon("frown")}</div>
+      <h3 id="tgTitle">No overlap this time</h3>
+      <p class="tg-lead">${who} didn't keep any of the same dinners. Another round?</p>
+      <button class="btn tg-go" id="tgAgain" type="button">Start another round</button>`);
+  } else {
+    tgBody(`
+      <p class="tg-kicker">It's a match</p>
+      <h3 id="tgTitle">${who} ${finished.length > 1 ? "all" : "both"} want${matches.length === 1 ? " this" : ` these ${matches.length}`}</h3>
+      <ul class="tg-matches">${matches.map((r) => `
+        <li><a href="${esc(r.url)}" target="_blank" rel="noopener"><img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" /><span><b>${esc(r.title)}</b><small>${esc(r.source)}</small></span>${icon("arrow-up-right")}</a></li>`).join("")}</ul>
+      ${state.user ? `<p class="tg-foot">Saved to your keeps.</p>` : `<button class="btn tg-go" id="tgSave" type="button">Save them to an account</button>`}
+      <button class="break-stop" id="tgAgain" type="button">Start another round</button>`);
+    const box = $(".tg-sheet").getBoundingClientRect();
+    setTimeout(() => confetti(box.left + box.width / 2, box.top + 80, 160, { power: 1.15 }), 120);
+  }
+  $("#tgAgain")?.addEventListener("click", () => { tg.code = null; tg.data = null; tgIntro(); });
+  $("#tgSave")?.addEventListener("click", () => { closeSheet("#together", () => openSave("manual")); });
+}
+
 (async () => {
   // Arriving from a magic link?
   const params = new URLSearchParams(location.search);
@@ -1600,9 +1834,10 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   // Links from the Sunday email: ?unsub=<token>, ?follow=<user id>, ?view=followers
   const isId = (v) => /^[0-9a-f-]{36}$/i.test(v || "");
   const unsub = params.get("unsub"), followId = params.get("follow"), view = params.get("view");
+  const withCode = params.get("with");
   if (isId(followId)) ls.set("forks:pendingFollow", followId);
   if (view === "followers") ls.set("forks:pendingView", "followers");
-  if ((shared || sharedUser || unsub || followId || view) && !hash) history.replaceState(null, "", location.pathname);
+  if ((shared || sharedUser || unsub || followId || view || withCode) && !hash) history.replaceState(null, "", location.pathname);
   let merge = false;
   if (hash) {
     history.replaceState(null, "", location.pathname);
@@ -1612,6 +1847,7 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   }
   const { data } = await db.auth.getSession();
   await setUser(data.session?.user ?? null, { merge });
+  if (withCode && /^[0-9a-f]{8}$/i.test(withCode)) openTogether(withCode.toLowerCase());
   if (isId(unsub)) {
     const { data: ok } = await db.rpc("meals_sunday_unsubscribe", { p_token: unsub });
     toast(ok ? "Sunday Dinner Pick email is off. Turn it back on anytime in your account." : "That link didn't work. You can turn it off in your account.");

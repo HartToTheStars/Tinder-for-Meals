@@ -1,0 +1,11 @@
+-- Applied as migrations meals_swipe_together and meals_swipe_together_code.
+-- "Swipe with someone": a host starts a round of 12 dinners (main + meals_is_dinner, with images,
+-- skipping ones the host already noped) and shares forkslist.com/?with=<code>. Anyone with the link
+-- swipes the same 12, no account needed. Matches = recipes every finished participant kept, shown
+-- once at least two people have finished. Rounds expire after 7 days; max 8 people per round.
+-- Tables meals_together, meals_together_votes have RLS on and no policies: access is only through
+--   meals_together_create(p_participant uuid, p_name text) -> code (8 hex chars)
+--   meals_together_vote(p_code, p_participant, p_name, p_recipe, p_liked) -> bool
+--   meals_together_get(p_code, p_participant) -> jsonb {code, host_name, is_host, total, recipes,
+--     people[{name,n,me}], mine{recipe_id: liked}, done, matches[recipe_id]} or null
+-- Participants are a random id each device keeps per round (plus user_id when signed in).
