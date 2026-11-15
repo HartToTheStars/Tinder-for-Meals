@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "/icons.js?v=39";
+import { icon } from "/icons.js?v=42";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -1128,6 +1128,7 @@ $("#btnOpen").innerHTML = icon("external-link");
 $("#acctIcon").innerHTML = icon("circle-user-round");
 $("#searchIcon").innerHTML = icon("search");
 $("#footHeart").innerHTML = icon("heart");
+document.querySelectorAll(".of-heart").forEach((h) => (h.innerHTML = icon("heart")));
 $("#searchToggle").innerHTML = icon("search");
 
 const v = ls.get("forks:view", "swipe");

@@ -24,7 +24,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/styles.css?v=39" />
+<link rel="stylesheet" href="/styles.css?v=42" />
 </head>
 <body class="home">
 <div class="app">
@@ -36,7 +36,7 @@
     <div class="top-right">
       <nav class="tabs" role="tablist">
         <button class="tab is-active" data-view="swipe" role="tab" aria-selected="true">Swipe</button>
-        <button class="tab" data-view="kept" role="tab" aria-selected="false">Kept<span class="tab-count" id="keptCount" hidden>0</span></button>
+        <button class="tab" data-view="kept" role="tab" aria-selected="false">Keeps<span class="tab-count" id="keptCount" hidden>0</span></button>
       </nav>
       <button class="acct-btn" id="acctBtn" aria-label="Account"><span id="acctIcon"></span><i class="acct-dot" id="acctDot" hidden></i></button>
     </div>
@@ -84,6 +84,7 @@
       <div class="others" id="othersWrap" hidden>
         <h3 class="others-title">Other keeps<span class="dot">.</span></h3>
         <div class="featured" id="featured"></div>
+        <p class="others-foot">Made with <span class="of-heart"></span> for Kelly <span class="dot-sep">·</span> <a href="/privacy.html">Privacy</a></p>
       </div>
     </section>
   </main>
@@ -186,6 +187,6 @@
 
 <div class="toast" id="toast" role="status"></div>
 
-<script type="module" src="/app.js?v=39"></script>
+<script type="module" src="/app.js?v=42"></script>
 </body>
 </html>

@@ -528,3 +528,23 @@ button.kept-by { cursor: pointer; }
   .home .act-nope, .home .act-like { width: 60px; height: 60px; }
   .home .act { width: 46px; height: 46px; }
 }
+
+/* "Made with ♡ for Kelly" lives under Other keeps on the phone Kept screen */
+.others-foot { display: none; }
+@media (max-width: 999px) {
+  #view-kept .others-foot { display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+  #view-kept .others-foot a { color: inherit; text-underline-offset: 3px; }
+  #view-kept .others-foot svg { width: 12px; height: 12px; color: var(--tomato); stroke-width: 2.4; }
+  #view-kept { padding-bottom: 140px; }
+  body:has(#view-kept.is-active .others:not([hidden])) .foot { display: none; }
+}
+
+/* phone Swipe screen: keep "Made with ♡ for Kelly" as a slim line under the buttons (still no scroll) */
+@media (max-width: 999px) {
+  .home:has(#view-swipe.is-active) .foot { display: flex; padding: 0 0 calc(6px + env(safe-area-inset-bottom)); font-size: 11.5px; }
+  .home #view-swipe .actions { padding: 2px 0 8px; }
+}
+@media (max-width: 999px) {
+  .home .act-nope svg, .home .act-like svg { width: 24px; height: 24px; }
+  .home .act svg { width: 19px; height: 19px; }
+}
