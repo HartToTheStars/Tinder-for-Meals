@@ -1,5 +1,6 @@
 // Harvests recipes from favorite sites (RSS + sitemaps) into meals_recipes.
-// Food52 sits behind a Vercel bot checkpoint (429 from server IPs), so it's skipped.
+// Food52 sits behind a Vercel bot checkpoint (429 from server IPs), so it's skipped. The Kitchn was dropped
+// (Nov 2026): its RSS is mostly shopping/news and its sitemaps and pages refuse our fetches.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36";
@@ -85,13 +86,11 @@ async function og(url: string) {
   return { title: meta("og:title")?.replace(/\s*[|\-–]\s*(Bon App[ée]tit|Smitten Kitchen|Half Baked Harvest|The Kitchn|Kitchn).*$/i, ""), image: meta("og:image"), description: meta("og:description") ?? meta("description") };
 }
 
-// Monthly sitemaps (sitemap-YYYY-MM.xml), newest first. Bon Appétit and The Kitchn both publish them.
+// Bon Appétit monthly sitemaps (sitemap-YYYY-MM.xml), newest first.
 const months = (n: number, site = "https://www.bonappetit.com") => Array.from({ length: n }, (_, i) => {
   const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - i);
   return `${site}/sitemap-${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}.xml`;
 });
-// The Kitchn's recipe posts end in -recipe-<id>; reviews, roundups and shopping posts don't.
-const KITCHN_RECIPE = /-recipe-\d+\/?$/;
 const SK_SKIP = /\/(about|faq|contact|recipes|category|tag|page|book|press|cookbook|surprise-me)\//;
 
 const SOURCES: Source[] = [
@@ -114,14 +113,6 @@ const SOURCES: Source[] = [
     collect: async () => [
       ...(await rss("https://www.bonappetit.com/feed/recipes-rss-feed/rss", (_, u) => u.includes("/recipe/"))),
       ...(await sitemap(months(18), (u) => u.includes("/recipe/"))),
-    ],
-  },
-  {
-    name: "The Kitchn",
-    // The RSS feed is only the 20 latest posts and mostly shopping/news, so most recipes come from the monthly sitemaps.
-    collect: async () => [
-      ...(await rss("https://www.thekitchn.com/main.rss", (_, u) => KITCHN_RECIPE.test(u))),
-      ...(await sitemap(months(12, "https://www.thekitchn.com"), (u) => KITCHN_RECIPE.test(u))),
     ],
   },
 ];
@@ -160,7 +151,7 @@ Deno.serve(async (req) => {
     const picks = [...fresh, ...archive].slice(0, PER_SOURCE);
     let budget = OG_BUDGET, added = 0;
     await pool(picks, 6, async (c) => {
-      const needsOg = !c.image || ((src.name === "Bon Appétit" || src.name === "The Kitchn") && (!c.title || !c.description));
+      const needsOg = !c.image || (src.name === "Bon Appétit" && (!c.title || !c.description));
       if (needsOg && budget-- > 0) {
         const m = await og(c.url);
         c.image ??= m.image; c.title ??= m.title ?? undefined; c.description ??= clip(m.description);
