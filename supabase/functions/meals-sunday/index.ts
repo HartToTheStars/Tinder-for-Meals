@@ -1,8 +1,9 @@
 // Sunday dinner pick: one email a week to everyone with an account, unless they turned it off.
-// POST { user_ids?: string[], dry?: boolean } with header x-forks-key: <SUNDAY_KEY secret>.
+// POST { user_ids?: string[], dry?: boolean } with header x-forks-key: <sunday_key from meals_internal (server-only table)>.
 //   user_ids: only these people (used for test sends); omitted = every account that hasn't turned it off and
 //   wasn't sent one in the last 6 days. On by default: no prefs row means on.
 //   dry: return the rendered emails instead of sending.
+//   test: send, but don't record it as this week's email (drafts).
 // Emails always go to the person's own account email, never to an address passed in.
 // Sent through Resend (RESEND_API_KEY; sender MAIL_FROM, default hello@forkslist.com).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -83,7 +84,7 @@ function render(d: Digest) {
         ? `<a href="${SITE}/?view=followers" style="display:inline-block;padding:8px 14px;border-radius:999px;border:1.5px solid #3f9b6b;color:#2f7a52;font:600 13px Helvetica,Arial,sans-serif;text-decoration:none;">Following</a>`
         : `<a href="${SITE}/?follow=${esc(f.user_id)}" style="display:inline-block;padding:8px 14px;border-radius:999px;background:#2a211c;color:#f7f1e8;font:600 13px Helvetica,Arial,sans-serif;text-decoration:none;">Follow back</a>`}</td>
     </tr></table>`).join("") + `
-    <a href="${SITE}/?view=followers" style="display:block;margin-top:10px;padding:12px;border-radius:14px;background:#f7f1e8;color:#2a211c;font:600 14px Helvetica,Arial,sans-serif;text-align:center;text-decoration:none;">See all ${d.follower_total} follower${d.follower_total === 1 ? "" : "s"}</a>`, "20px 18px 14px") : "";
+    <a href="${SITE}/?view=followers" style="display:block;margin-top:10px;padding:12px;border-radius:14px;background:#f7f1e8;color:#2a211c;font:600 14px Helvetica,Arial,sans-serif;text-align:center;text-decoration:none;">${d.follower_total > d.new_followers.length ? `See all ${d.follower_total} followers` : "See your followers"}</a>`, "20px 18px 14px") : "";
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>forks.</title></head>
 <body style="margin:0;padding:0;background:#f7f1e8;">
@@ -114,11 +115,11 @@ function render(d: Digest) {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  const key = Deno.env.get("SUNDAY_KEY");
-  if (!key || req.headers.get("x-forks-key") !== key) return json({ error: "forbidden" }, 403);
+  const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { data: k } = await db.from("meals_internal").select("value").eq("name", "sunday_key").maybeSingle();
+  if (!k?.value || req.headers.get("x-forks-key") !== k.value) return json({ error: "forbidden" }, 403);
   const body = await req.json().catch(() => ({}));
   const dry = !!body.dry;
-  const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   let ids: string[] = Array.isArray(body.user_ids) ? body.user_ids.filter((x: unknown) => typeof x === "string").slice(0, 50) : [];
   if (!ids.length) {
@@ -153,7 +154,8 @@ Deno.serve(async (req) => {
       }),
     });
     if (r.ok) {
-      await db.from("meals_email_prefs").update({ last_pick: digest.pick.id, last_sent_at: new Date().toISOString() }).eq("user_id", uid);
+      // Test sends (body.test) don't count as this week's email: no "last pick", no 6-day hold.
+      if (!body.test) await db.from("meals_email_prefs").update({ last_pick: digest.pick.id, last_sent_at: new Date().toISOString() }).eq("user_id", uid);
       results.push({ user: uid, sent: true, subject: mail.subject });
     } else {
       results.push({ user: uid, sent: false, status: r.status, error: (await r.text()).slice(0, 200) });

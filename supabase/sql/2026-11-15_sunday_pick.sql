@@ -1,0 +1,10 @@
+-- Applied 2026-11-15. Sunday dinner pick (weekly email), on by default; see supabase/functions/meals-sunday.
+-- meals_email_prefs: one row per account (sunday_pick default true, private unsub_token, last_pick, last_sent_at);
+--   RLS: own row readable; writes only through the functions below or the service role.
+-- meals_set_sunday_pick(bool)        signed-in person turns it on/off
+-- meals_sunday_unsubscribe(uuid)     "Turn it off" link from the email, no sign-in
+-- meals_sunday_digest(uuid)          service role only: name, color, email, unsub token, the pick (a main you kept that
+--                                    someone you follow also kept, else a main you kept, else any main; never last
+--                                    week's), keeps this week from people you follow (keeps only), new followers.
+-- meals_internal                     server-only key table; sunday_key authorizes calls to meals-sunday.
+-- Full DDL was applied through the Supabase migrations "meals_sunday_pick" and "meals_internal_keys".
