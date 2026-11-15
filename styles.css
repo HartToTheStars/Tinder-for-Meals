@@ -633,6 +633,10 @@ a.src-row:hover { background: var(--bg); }
 /* Confetti burst (keeps swipe-right) */
 .confetti { position: fixed; inset: 0; pointer-events: none; z-index: 70; overflow: hidden; perspective: 600px; }
 .confetti i { position: absolute; display: block; will-change: transform; }
+.swipe-open .sw-big { display: none; }
+.swipe-row.full .swipe-open .sw-label { display: none; }
+.swipe-row.full .swipe-open .sw-big { display: inline; }
+.swipe-row.full .swipe-open svg { transform: scale(1.5) rotate(-12deg); }
 
 /* Toast with an action (Undo) */
 .toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 14px; padding-right: 8px; }

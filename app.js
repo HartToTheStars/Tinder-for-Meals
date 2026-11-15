@@ -665,7 +665,7 @@ function renderKept() {
     const t = tagIcons(r, 4);
     return `
     <li class="swipe-row" data-id="${r.id}">
-      <span class="swipe-bg swipe-open" aria-hidden="true">${icon("party-popper")}<b>Celebrate</b></span>
+      <span class="swipe-bg swipe-open" aria-hidden="true">${icon("party-popper")}<b class="sw-label">Celebrate</b><b class="sw-big">Go big!</b></span>
       <span class="swipe-bg swipe-del" aria-hidden="true"><b>Remove</b>${icon("x")}</span>
       <div class="item${r.id === state.freshId ? " fresh" : ""}" data-id="${r.id}" style="animation-delay:${r.id === state.freshId ? 0 : Math.min(i, 12) * 20}ms">
       <img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" />
@@ -741,11 +741,22 @@ async function removeKeep(row) {
   const list = $("#list");
   let drag = null, eatClick = false;
   const threshold = (item) => Math.min(110, item.offsetWidth * 0.3);
+  const full = (item) => item.offsetWidth * 0.7;
   const paint = (d, dx) => {
     d.item.style.transform = `translateX(${dx}px)`;
     d.open.style.opacity = dx > 0 ? Math.min(1, dx / 60) : 0;
     d.del.style.opacity = dx < 0 ? Math.min(1, -dx / 60) : 0;
     d.row.classList.toggle("armed", Math.abs(dx) > threshold(d.item));
+    d.row.classList.toggle("full", dx > full(d.item));
+  };
+  // While dragging right, sprinkle confetti out of the panel: the further you go, the more comes out.
+  const sprinkle = (d) => {
+    const now = performance.now();
+    if (d.dx < 24 || now - (d.lastSprinkle || 0) < 55) return;
+    d.lastSprinkle = now;
+    const box = d.row.getBoundingClientRect();
+    const amount = Math.min(10, Math.ceil(d.dx / 40));
+    confetti(box.left + Math.min(d.dx, box.width) * 0.45, box.top + box.height * 0.5, amount, { power: 0.35 + Math.min(0.5, d.dx / box.width), size: 0.8 });
   };
   const settle = (d) => {
     d.item.classList.add("snapping");
@@ -772,6 +783,7 @@ async function removeKeep(row) {
     }
     d.dx = dx;
     paint(d, dx);
+    if (dx > 0) sprinkle(d);
   });
   const end = (e) => {
     const d = drag;
@@ -789,9 +801,19 @@ async function removeKeep(row) {
     }
     if (e.type === "pointerup" && d.dx > th) {
       const box = d.row.getBoundingClientRect();
-      confetti(box.left + Math.min(d.dx, box.width) * 0.6, box.top + box.height / 2);
-      buzz([12, 50, 18]);
+      const x = box.left + Math.min(d.dx, box.width) * 0.6, y = box.top + box.height / 2;
+      if (d.dx > full(d.item)) {
+        // All the way: explode. A huge burst from the row plus cannons from both bottom corners.
+        confetti(x, y, 220, { power: 1.7 });
+        confetti(0, window.innerHeight, 110, { power: 1.6, aim: -Math.PI / 3, spread: 0.6 });
+        confetti(window.innerWidth, window.innerHeight, 110, { power: 1.6, aim: -2 * Math.PI / 3, spread: 0.6 });
+        buzz([20, 40, 30, 40, 60]);
+      } else {
+        confetti(x, y, 160, { power: 1.15 });
+        buzz([12, 50, 18]);
+      }
     }
+    d.row.classList.remove("full");
     settle(d);
   };
   list.addEventListener("pointerup", end);
@@ -802,30 +824,37 @@ async function removeKeep(row) {
   list.addEventListener("click", (e) => { if (eatClick) { e.preventDefault(); e.stopPropagation(); } }, true);
 })();
 
-// Confetti: a burst of paper bits from (x, y) that arcs up, spins and falls with gravity.
-function confetti(x, y, n = 90) {
+// Confetti: paper bits from (x, y) that shoot out, spin and fall with gravity. All bursts share one layer.
+// power scales speed, aim is the direction in radians (default straight up), spread is the fan width (1 = 180°).
+let confettiLayer = null, confettiLive = 0;
+function confetti(x, y, n = 90, { power = 1, aim = -Math.PI / 2, spread = 1.1, size = 1 } = {}) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const colors = ["#e8553e", "#3f9b6b", "#e9a23b", "#f3c3b8", "#6f8fd8", "#f7f1e8"];
-  const layer = document.createElement("div");
-  layer.className = "confetti";
-  document.body.append(layer);
-  const fall = window.innerHeight - y + 80;
-  let left = n;
+  if (!confettiLayer) {
+    confettiLayer = document.createElement("div");
+    confettiLayer.className = "confetti";
+    document.body.append(confettiLayer);
+  }
+  const colors = ["#e8553e", "#3f9b6b", "#e9a23b", "#f3c3b8", "#6f8fd8", "#f7f1e8", "#c77dbd"];
+  const fall = window.innerHeight - y + 120;
   for (let i = 0; i < n; i++) {
     const bit = document.createElement("i");
-    const w = 6 + Math.random() * 6, h = Math.random() < 0.3 ? w : w * (0.4 + Math.random() * 0.4);
-    bit.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${colors[i % colors.length]};border-radius:${Math.random() < 0.25 ? "50%" : "2px"}`;
-    layer.append(bit);
-    const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.1; // mostly upward fan
-    const v = 160 + Math.random() * 260;
+    const w = (6 + Math.random() * 6) * size, h = Math.random() < 0.3 ? w : w * (0.4 + Math.random() * 0.4);
+    bit.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${colors[(Math.random() * colors.length) | 0]};border-radius:${Math.random() < 0.25 ? "50%" : "2px"}`;
+    confettiLayer.append(bit);
+    confettiLive++;
+    const a = aim + (Math.random() - 0.5) * Math.PI * spread;
+    const v = (160 + Math.random() * 280) * power;
     const dx = Math.cos(a) * v, up = Math.sin(a) * v; // up is negative
-    const drift = (Math.random() - 0.5) * 120, spin = (Math.random() - 0.5) * 1440, flip = Math.random() * 720;
-    const dur = 1300 + Math.random() * 900;
+    const drift = (Math.random() - 0.5) * 140, spin = (Math.random() - 0.5) * 1440, flip = Math.random() * 720;
+    const dur = (1300 + Math.random() * 1000) * (0.8 + power * 0.25);
     bit.animate([
       { transform: "translate(-50%, -50%) rotate(0deg) rotateX(0deg)", opacity: 1 },
       { transform: `translate(calc(-50% + ${dx * 0.8}px), calc(-50% + ${up}px)) rotate(${spin * 0.35}deg) rotateX(${flip * 0.35}deg)`, opacity: 1, offset: 0.3, easing: "cubic-bezier(.3,.6,.6,1)" },
       { transform: `translate(calc(-50% + ${dx + drift}px), calc(-50% + ${fall}px)) rotate(${spin}deg) rotateX(${flip}deg)`, opacity: 0.9, easing: "cubic-bezier(.5,0,.9,.6)" },
-    ], { duration: dur, delay: Math.random() * 60, fill: "forwards" }).finished.then(() => { bit.remove(); if (--left === 0) layer.remove(); }, () => {});
+    ], { duration: dur, delay: Math.random() * 80, fill: "forwards" }).finished.then(() => {
+      bit.remove();
+      if (--confettiLive === 0 && confettiLayer) { confettiLayer.remove(); confettiLayer = null; }
+    }, () => {});
   }
 }
 
