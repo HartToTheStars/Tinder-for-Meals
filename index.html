@@ -10,7 +10,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="forks." />
 <meta property="og:title" content="forks. | meet your next meal." />
-<meta property="og:description" content="Swipe right on recipes you love. Keep the good ones." />
+<meta property="og:description" content="Swipe right on recipes you love." />
 <meta property="og:url" content="https://forkslist.com/" />
 <meta property="og:image" content="https://forkslist.com/og/site.jpg" />
 <meta property="og:image:width" content="1200" />
@@ -18,13 +18,13 @@
 <meta property="og:image:alt" content="forks. meet your next meal." />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="forks. | meet your next meal." />
-<meta name="twitter:description" content="Swipe right on recipes you love. Keep the good ones." />
+<meta name="twitter:description" content="Swipe right on recipes you love." />
 <meta name="twitter:image" content="https://forkslist.com/og/site.jpg" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e8553e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2'/%3E%3Cpath d='M7 2v20'/%3E%3Cpath d='M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/styles.css?v=46" />
+<link rel="stylesheet" href="/styles.css?v=47" />
 </head>
 <body class="home">
 <div class="app">
@@ -58,7 +58,7 @@
         </div>
         <div class="actions">
           <button class="act act-undo" id="btnUndo" aria-label="Undo" title="Undo (⌫)" data-key="⌫" disabled></button>
-          <button class="act act-nope" id="btnNope" aria-label="Pass" title="Pass (←)" data-key="←"></button>
+          <button class="act act-nope" id="btnNope" aria-label="Nope" title="Nope (←)" data-key="←"></button>
           <button class="act act-like" id="btnLike" aria-label="Keep" title="Keep (→)" data-key="→"></button>
           <a class="act act-open" id="btnOpen" aria-label="Open recipe" title="Open recipe (↑)" data-key="↑" target="_blank" rel="noopener"></a>
         </div>
@@ -73,7 +73,7 @@
       <div class="tags" id="keptTags" role="group" aria-label="Filter keepers by diet and lifestyle"></div>
       <div class="search">
         <span id="searchIcon"></span>
-        <input id="search" type="search" placeholder="Search your keepers…" autocomplete="off" />
+        <input id="search" type="search" placeholder="Search your keeps…" autocomplete="off" />
       </div>
       <div class="chips" id="chips"></div>
       <ul class="list" id="list"></ul>
@@ -162,7 +162,7 @@
       <img id="landImg" alt="" referrerpolicy="no-referrer" />
       <span class="land-body"><span class="source" id="landSource"></span><span class="land-title" id="landTitle"></span></span>
     </a>
-    <p class="land-pitch">forks is Tinder for dinner. Swipe right on recipes you love, left on the rest.</p>
+    <p class="land-pitch">forks is like Tinder for dinner. Swipe right on recipes you love.</p>
     <button class="btn break-go" id="landGo" type="button">Start swiping</button>
     <label class="land-follow" id="landFollowRow">
       <input type="checkbox" id="landFollow" checked />
@@ -177,7 +177,7 @@
   <form class="break-sheet" id="nameForm" role="dialog" aria-modal="true" aria-labelledby="nameTitle" novalidate>
     <div class="name-preview" id="namePreview"></div>
     <h3 id="nameTitle">What should we call you?</h3>
-    <p>Just your first name. It becomes your profile picture.</p>
+    <p>Just your first name.</p>
     <label class="save-field"><span class="sr">First name</span>
       <input id="nameInput" type="text" autocomplete="given-name" autocapitalize="words" maxlength="40" placeholder="First name" />
     </label>
@@ -189,6 +189,6 @@
 
 <div class="toast" id="toast" role="status"></div>
 
-<script type="module" src="/app.js?v=46"></script>
+<script type="module" src="/app.js?v=47"></script>
 </body>
 </html>

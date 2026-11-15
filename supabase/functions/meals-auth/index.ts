@@ -18,7 +18,7 @@ const json = (body: unknown, status = 200) =>
 function emailHtml(kind: "new" | "existing", link: string, keeps: number) {
   const title = kind === "new" ? "Your keeps are saved" : "Sign in to forks";
   const body = kind === "new"
-    ? `${keeps ? `We tucked away the ${keeps} recipe${keeps === 1 ? "" : "s"} you kept.` : "Your forks account is ready."} Tap below to confirm it's you and pick up where you left off, on any device.`
+    ? `${keeps ? `We tucked away the ${keeps} keep${keeps === 1 ? "" : "s"}.` : "Your forks account is ready."} Tap below to confirm it's you and pick up where you left off, on any device.`
     : "Tap below to sign in. Anything you kept while browsing comes with you.";
   const cta = kind === "new" ? "Open my keeps" : "Sign in";
   return `<!doctype html><html><body style="margin:0;padding:0;background:#f7f1e8;">
@@ -36,7 +36,7 @@ function emailHtml(kind: "new" | "existing", link: string, keeps: number) {
 }
 
 const emailText = (kind: "new" | "existing", link: string) =>
-  (kind === "new" ? "Your forks keeps are saved.\n\nOpen them here:\n" : "Sign in to forks:\n") +
+  (kind === "new" ? "Your keeps are saved.\n\nOpen them here:\n" : "Sign in to forks:\n") +
   `${link}\n\nThis link works once and expires in an hour. If you didn't ask for it, ignore this email.`;
 
 Deno.serve(async (req) => {
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
     body: JSON.stringify({
       from, to: [email],
-      subject: kind === "new" ? "Your forks keeps are saved" : "Your forks sign-in link",
+      subject: kind === "new" ? "Your keeps are saved" : "Your forks sign-in link",
       html: emailHtml(kind, url, liked.length),
       text: emailText(kind, url),
     }),

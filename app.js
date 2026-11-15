@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "/icons.js?v=46";
+import { icon } from "/icons.js?v=47";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -271,9 +271,9 @@ function render() {
     deckMsg.innerHTML = state.busy
       ? `<div class="spinner"></div><p>Setting the table…</p>`
       : want.length
-        ? `<div class="big">${want.map((t) => icon(TAG[t].i)).join("")}</div><h3>Nothing left that fits</h3><p>You've swiped every ${want.map((t) => TAG[t].l.toLowerCase()).join(" + ")} ${CATS[state.cat][2]} we have.</p><div class="row"><button class="btn" id="btnClearTags">Clear filters</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
+        ? `<div class="big">${want.map((t) => icon(TAG[t].i)).join("")}</div><h3>Nothing left that fits your filters.</h3><div class="row"><button class="btn" id="btnClearTags">Clear filters</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
       : state.cat
-        ? `<div class="big">${icon(CATS[state.cat][0])}</div><h3>That's every one of the ${CATS[state.cat][2]}</h3><p>Swipe through everything else, or check the kitchens for more.</p><div class="row"><button class="btn" id="btnAll">Show everything</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
+        ? `<div class="big">${icon(CATS[state.cat][0])}</div><h3>That's every one of the ${CATS[state.cat][2]}.</h3><div class="row"><button class="btn" id="btnAll">Show everything</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
         : `<div class="big">${icon("chef-hat")}</div><h3>You've seen it all</h3><p>Want me to check the kitchens for new recipes?</p><button class="btn" id="btnHarvest">Find fresh recipes</button>`;
     deckMsg.hidden = false;
     $("#btnHarvest")?.addEventListener("click", harvest);
@@ -468,7 +468,7 @@ async function harvest() {
     if (json.added) for (let i = 0; i < 2; i++) await fetch(`${SUPABASE_URL}/functions/v1/meals-enrich`, {
       method: "POST", headers: { Authorization: `Bearer ${SUPABASE_ANON}`, apikey: SUPABASE_ANON },
     }).catch(() => {});
-  } catch { toast("The kitchens didn't answer"); }
+  } catch { toast("The kitchens didn't answer. BRB."); }
   state.dry = false;
   await refill();
 }
@@ -559,12 +559,12 @@ function renderKept() {
   const [ic, , label] = CATS[state.keptCat];
   $("#emptyIcon").innerHTML = icon(state.kept.length ? ic : "heart");
   empty.querySelector("p").textContent = !state.kept.length
-    ? "Nothing kept yet. Go swipe right on something delicious."
+    ? "No keeps yet. Go swipe right on something delicious."
     : state.query
-      ? "No keepers match that. Try another word."
+      ? "No keeps match that. Try another word."
       : state.keptWant.size
-        ? `No ${[...state.keptWant].map((t) => TAG[t].l.toLowerCase()).join(" + ")} ${label} kept yet.`
-        : `No ${label} kept yet. Go find some!`;
+        ? `No ${[...state.keptWant].map((t) => TAG[t].l.toLowerCase()).join(" + ")} ${label} keeps yet.`
+        : `No ${label} keeps yet. Go swipe some!`;
   const go = $("#emptyGo");
   go.hidden = !!(state.kept.length && state.query);
   go.textContent = state.kept.length && (state.keptCat || state.keptWant.size)
@@ -641,13 +641,13 @@ function checkIn() {
   let ic, title, text;
   if (kept.length >= 8) {
     [ic, title] = pick([["flame", "On a roll"], ["chef-hat", "Chef's kiss"], ["sparkles", "Hungry much?"]]);
-    text = `You kept ${kept.length} of your last ${BREAK_EVERY}. That's a lot of good dinners.`;
+    text = `You kept ${kept.length} of your last ${BREAK_EVERY}. We see you, keeper.`;
   } else if (kept.length) {
     [ic, title] = pick([["party-popper", "Twenty down"], ["sparkles", "Nice haul"], ["chef-hat", "Look at you go"]]);
-    text = `${kept.length} new keeper${kept.length > 1 ? "s" : ""} from your last ${BREAK_EVERY} swipes.`;
+    text = `${kept.length} new keep${kept.length > 1 ? "s" : ""} from your last ${BREAK_EVERY} swipes.`;
   } else {
     [ic, title] = pick([["frown", "Tough crowd"], ["search", "Picky, picky"]]);
-    text = `Nothing grabbed you in the last ${BREAK_EVERY}. Maybe try another course?`;
+    text = `Nothing grabbed you in the last ${BREAK_EVERY}. Maybe try another type of recipe?`;
   }
   $("#breakIcon").innerHTML = icon(ic);
   $("#breakTitle").textContent = title;
@@ -691,7 +691,7 @@ function setSave(mode, email = "") {
   if (mode === "cta") {
     $("#saveIcon").innerHTML = icon("bookmark");
     $("#saveTitle").textContent = "Don't lose your keeps";
-    $("#saveText").textContent = `You've kept ${keeps} so far. Add your email and we'll save them. No password, just a magic link.`;
+    $("#saveText").textContent = `You have ${keeps} keep${keeps === 1 ? "" : "s"} so far. Add your email and we'll save them.`;
     $("#saveGo").textContent = "Save my keeps";
     $("#saveSkip").textContent = "No thanks, just browsing";
   } else if (mode === "manual") {
@@ -699,7 +699,7 @@ function setSave(mode, email = "") {
     $("#saveTitle").textContent = keeps ? "Save your keeps" : "Sign in";
     $("#saveText").textContent = keeps
       ? `Your ${keeps} keep${keeps === 1 ? " lives" : "s live"} on this device for now. Add your email to save ${keeps === 1 ? "it" : "them"} anywhere.`
-      : "Enter your email and we'll send a magic link. No password needed.";
+      : "Enter your email and we'll send a magic link.";
     $("#saveGo").textContent = keeps ? "Save my keeps" : "Send my link";
     $("#saveSkip").textContent = "Not now";
   } else if (mode === "sent-new") {
@@ -710,7 +710,7 @@ function setSave(mode, email = "") {
   } else if (mode === "sent-existing") {
     $("#saveIcon").innerHTML = icon("mail");
     $("#saveTitle").textContent = "Welcome back";
-    $("#saveText").textContent = `${email} already has an account, so we sent you a magic link to sign in.${keeps ? " Today's keeps come along when you tap it." : ""}`;
+    $("#saveText").textContent = `${email} already has an account, so we sent you a magic link to sign in.${keeps ? " Today's keeps save to your account once you tap that link." : ""}`;
     $("#saveGo").textContent = "Keep swiping";
   }
 }
@@ -764,7 +764,7 @@ $("#acctBtn").addEventListener("click", () => {
   $("#acctSheetIcon").innerHTML = icon("circle-user-round");
   if (state.me?.name) $("#acctSheetIcon").innerHTML = avatar(state.me.name, "xl", state.me.color);
   $("#acctTitle").textContent = state.me?.name ? `Hi ${state.me.name}` : "You're signed in";
-  $("#acctText").textContent = `${state.user.email}. Your keeps are saved to your account.`;
+  $("#acctText").textContent = "Your keeps are saved to your account.";
   $("#acctShare").innerHTML = icon("share");
   $("#acctCopy").innerHTML = icon("copy");
   $("#acctCopy").hidden = !state.me?.share_code;
@@ -1002,7 +1002,7 @@ async function shareRecipe(r) {
   const url = (await hasPreview(r.id))
     ? `${location.origin}/s/${r.id}/${by ? `?by=${by}` : ""}`
     : `${location.origin}/?r=${r.id}${by ? `&by=${by}` : ""}`;
-  const text = `${r.title}. Found it on forks, swipe right on dinner.`;
+  const text = `${r.title}. Found it on forks.`;
   try {
     if (navigator.share) { await navigator.share({ title: r.title, text, url }); return; }
   } catch (err) { if (err?.name === "AbortError") return; }
