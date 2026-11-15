@@ -927,6 +927,7 @@ $("#chips").addEventListener("click", (e) => {
 $("#search").addEventListener("input", (e) => { state.query = e.target.value; renderKept(); });
 
 // ---------- sheets ----------
+document.querySelectorAll(".sheet-x").forEach((b) => { b.innerHTML = icon("x"); });
 function openSheet(sel) {
   const s = $(sel);
   s.hidden = false;

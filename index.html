@@ -24,7 +24,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/styles.css?v=64" />
+<link rel="stylesheet" href="/styles.css?v=66" />
 </head>
 <body class="home">
 <div class="app">
@@ -126,6 +126,7 @@
 <!-- Signed-in account -->
 <div class="break" id="acct" hidden>
   <div class="break-sheet" role="dialog" aria-modal="true" aria-labelledby="acctTitle">
+    <button class="sheet-x" id="acctDone" type="button" aria-label="Close"></button>
     <div class="break-icon" id="acctSheetIcon"></div>
     <h3 id="acctTitle">You're signed in</h3>
     <p id="acctText"></p>
@@ -143,7 +144,6 @@
       <ul class="fl-list" id="acctFollowerList"></ul>
       <button class="fl-more" id="acctFollowerMore" type="button" hidden>Show more</button>
     </section>
-    <button class="btn break-go" id="acctDone">Done</button>
     <button class="break-stop" id="acctOut">Sign out</button>
     <button class="fine danger" id="acctDelete" type="button">Delete my account</button>
     <a class="fine acct-privacy" href="/privacy.html">Privacy</a>
@@ -153,23 +153,23 @@
 <!-- Sunday Dinner Pick email preview -->
 <div class="break" id="mailPrev" hidden>
   <div class="break-sheet list-sheet mail-sheet" role="dialog" aria-modal="true" aria-labelledby="mailPrevTitle">
+    <button class="sheet-x" id="mailPrevDone" type="button" aria-label="Close"></button>
     <h3 id="mailPrevTitle">Sunday Dinner Pick email</h3>
     <small class="mp-sub" id="mailPrevSub"></small>
     <div class="mp-frame"><iframe id="mailPrevFrame" title="Sunday Dinner Pick email preview" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe><p class="mp-msg" id="mailPrevMsg" hidden></p></div>
-    <button class="btn break-go" id="mailPrevDone" type="button">Close</button>
   </div>
 </div>
 
 <!-- Someone's public list -->
 <div class="break" id="people" hidden>
   <div class="break-sheet list-sheet" role="dialog" aria-modal="true" aria-labelledby="peopleName">
+    <button class="sheet-x" id="peopleClose" type="button" aria-label="Close"></button>
     <div class="ls-head">
       <span class="avatar" id="peopleAvatar"></span>
       <div class="ls-who"><h3 id="peopleName"></h3><small id="peopleCount"></small></div>
       <button class="follow" id="peopleFollow" type="button"></button>
     </div>
     <ul class="ls-list" id="peopleList"></ul>
-    <button class="break-stop" id="peopleClose" type="button">Close</button>
   </div>
 </div>
 
@@ -208,6 +208,6 @@
 
 <div class="toast" id="toast" role="status"></div>
 
-<script type="module" src="/app.js?v=68"></script>
+<script type="module" src="/app.js?v=69"></script>
 </body>
 </html>
