@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "/icons.js?v=36";
+import { icon } from "/icons.js?v=37";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -468,11 +468,13 @@ async function loadKept() {
 }
 
 function updateCount(bump) {
-  for (const c of [$("#keptCount"), $("#keptCount2")]) {
-    c.textContent = state.kept.length;
-    c.hidden = !state.kept.length; // no "0" badges
-    if (bump) { c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
-  }
+  // Quiet counts: "Kept · 7" on the tab, "7 recipes saved" under the heading. Hidden at zero.
+  const n = state.kept.length;
+  const tab = $("#keptCount"), sub = $("#keptSub");
+  tab.textContent = n;
+  sub.textContent = `${n} recipe${n === 1 ? "" : "s"} saved`;
+  tab.hidden = sub.hidden = !n;
+  if (bump) for (const c of [tab, sub]) { c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
 }
 
 const norm = (s = "") => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
