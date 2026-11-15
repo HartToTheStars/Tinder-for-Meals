@@ -100,7 +100,7 @@ function render(d: Digest) {
   const whoToFollow = !n && sugg.length ? card(h2("Who to follow") + sugg.map((u, i) => `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${i < sugg.length - 1 ? "border-bottom:1px solid #e9dfd2;" : ""}"><tr>
       <td style="padding:9px 0;" width="34"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${avatar(u.name, u.color, 34)}</tr></table></td>
-      <td style="padding:9px 10px;font:600 14.5px Helvetica,Arial,sans-serif;color:#2a211c;"><a href="${SITE}/${esc(encodeURIComponent(u.key))}" style="color:#2a211c;text-decoration:none;">${esc(u.name)}</a><div style="font:400 12px Helvetica,Arial,sans-serif;color:#74685e;">${u.followers} follower${u.followers === 1 ? "" : "s"} &middot; ${u.keeps ?? 0} keep${u.keeps === 1 ? "" : "s"}</div></td>
+      <td style="padding:9px 10px;font:600 14.5px Helvetica,Arial,sans-serif;color:#2a211c;"><a href="${SITE}/${esc(encodeURIComponent(u.key))}" style="color:#2a211c;text-decoration:none;">${esc(u.name)}</a><div style="font:400 12px/1.4 Helvetica,Arial,sans-serif;color:#74685e;">${u.followers} follower${u.followers === 1 ? "" : "s"}</div><div style="font:400 12px/1.4 Helvetica,Arial,sans-serif;color:#74685e;">${u.keeps ?? 0} keep${u.keeps === 1 ? "" : "s"}</div></td>
       <td align="right" style="padding:9px 0;"><a href="${SITE}/?follow=${esc(u.user_id)}" style="display:inline-block;padding:8px 14px;border-radius:999px;background:#2a211c;color:#f7f1e8;font:600 13px Helvetica,Arial,sans-serif;text-decoration:none;">Follow</a></td>
     </tr></table>`).join(""), "20px 18px 14px") : "";
 
