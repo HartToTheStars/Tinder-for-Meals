@@ -1,6 +1,7 @@
-// Sunday dinner pick: one email a week to people who turned it on.
+// Sunday dinner pick: one email a week to everyone with an account, unless they turned it off.
 // POST { user_ids?: string[], dry?: boolean } with header x-forks-key: <SUNDAY_KEY secret>.
-//   user_ids: only these people (used for test sends); omitted = everyone opted in who wasn't sent in the last 6 days.
+//   user_ids: only these people (used for test sends); omitted = every account that hasn't turned it off and
+//   wasn't sent one in the last 6 days. On by default: no prefs row means on.
 //   dry: return the rendered emails instead of sending.
 // Emails always go to the person's own account email, never to an address passed in.
 // Sent through Resend (RESEND_API_KEY; sender MAIL_FROM, default hello@forkslist.com).
@@ -15,7 +16,7 @@ const https = (u: string) => String(u || "").replace(/^http:\/\//, "https://");
 type Recipe = { id?: string; title: string; source?: string; url: string; image: string; with_name?: string; with_color?: string };
 type Person = { name: string; color: string | null; n: number; key: string; recipes: Recipe[] };
 type Follower = { user_id: string; name: string; color: string | null; at: string; follows_back: boolean };
-type Digest = { name: string; email: string; unsub_token: string; pick: Recipe | null; people: Person[]; new_followers: Follower[]; new_follower_count: number; follower_total: number };
+type Digest = { name: string; color: string | null; email: string; unsub_token: string; pick: Recipe | null; people: Person[]; new_followers: Follower[]; new_follower_count: number; follower_total: number };
 
 // Same palette the app uses for avatars without a saved color.
 const PALETTE = ["#e8553e", "#3f9b6b", "#d9922e", "#6f8fd8", "#7a5fa8", "#c4402b", "#2f7a52"];
@@ -54,7 +55,7 @@ function render(d: Digest) {
 
   const hero = `<tr><td style="padding:0 0 18px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fffdf9;border:1px solid #e9dfd2;border-radius:24px;overflow:hidden;">
     <tr><td style="padding:0;"><a href="${esc(https(p.url))}"><img src="${esc(https(p.image))}" alt="${esc(p.title)}" width="358" style="display:block;width:100%;max-width:100%;height:auto;border-radius:24px 24px 0 0;"></a></td></tr>
-    ${p.with_name ? `<tr><td style="padding:14px 20px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${avatar(p.with_name, p.with_color ?? null, 24)}<td width="6"></td>${avatar(d.name, null, 24)}<td style="padding-left:8px;font:600 12.5px Helvetica,Arial,sans-serif;color:#2a211c;">You and ${esc(p.with_name)} both kept this</td></tr></table></td></tr>` : ""}
+    ${p.with_name ? `<tr><td style="padding:14px 20px 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${avatar(p.with_name, p.with_color ?? null, 24)}<td width="6"></td>${avatar(d.name, d.color, 24)}<td style="padding-left:8px;font:600 12.5px Helvetica,Arial,sans-serif;color:#2a211c;">You and ${esc(p.with_name)} both kept this</td></tr></table></td></tr>` : ""}
     <tr><td style="padding:16px 20px 22px;">
       <div style="font:700 11px Helvetica,Arial,sans-serif;letter-spacing:1.1px;text-transform:uppercase;color:#c4402b;">Your dinner this week</div>
       <div style="font:700 30px/1.1 Georgia,'Times New Roman',serif;color:#2a211c;margin:8px 0 6px;">${esc(p.title)}<span style="color:#e8553e;">.</span></div>
@@ -122,8 +123,15 @@ Deno.serve(async (req) => {
   let ids: string[] = Array.isArray(body.user_ids) ? body.user_ids.filter((x: unknown) => typeof x === "string").slice(0, 50) : [];
   if (!ids.length) {
     const since = new Date(Date.now() - 6 * 86400e3).toISOString();
-    const { data } = await db.from("meals_email_prefs").select("user_id, last_sent_at").eq("sunday_pick", true);
-    ids = (data ?? []).filter((r) => !r.last_sent_at || r.last_sent_at < since).map((r) => r.user_id);
+    const [{ data: profiles }, { data: prefs }] = await Promise.all([
+      db.from("meals_profiles").select("user_id"),
+      db.from("meals_email_prefs").select("user_id, sunday_pick, last_sent_at"),
+    ]);
+    const pref = new Map((prefs ?? []).map((r) => [r.user_id, r]));
+    ids = (profiles ?? []).map((r) => r.user_id).filter((id) => {
+      const p = pref.get(id);
+      return !p || (p.sunday_pick && (!p.last_sent_at || p.last_sent_at < since));
+    });
   }
 
   const results: unknown[] = [];
