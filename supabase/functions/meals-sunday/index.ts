@@ -17,7 +17,7 @@ const https = (u: string) => String(u || "").replace(/^http:\/\//, "https://");
 type Recipe = { id?: string; title: string; source?: string; url: string; image: string; with_name?: string; with_color?: string };
 type Person = { name: string; color: string | null; n: number; key: string; recipes: Recipe[] };
 type Follower = { user_id: string; name: string; color: string | null; at: string; follows_back: boolean };
-type Suggestion = { user_id: string; name: string; color: string | null; key: string; followers: number };
+type Suggestion = { user_id: string; name: string; color: string | null; key: string; followers: number; keeps?: number };
 type Digest = { name: string; color: string | null; email: string; unsub_token: string; pick: Recipe | null; people: Person[]; new_followers: Follower[]; new_follower_count: number; follower_total: number; suggestions?: Suggestion[] };
 
 // Same palette the app uses for avatars without a saved color.
@@ -92,7 +92,7 @@ function render(d: Digest) {
   const whoToFollow = !n && sugg.length ? card(h2("Who to follow") + sugg.map((u, i) => `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="${i < sugg.length - 1 ? "border-bottom:1px solid #e9dfd2;" : ""}"><tr>
       <td style="padding:9px 0;" width="34"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${avatar(u.name, u.color, 34)}</tr></table></td>
-      <td style="padding:9px 10px;font:600 14.5px Helvetica,Arial,sans-serif;color:#2a211c;"><a href="${SITE}/${esc(encodeURIComponent(u.key))}" style="color:#2a211c;text-decoration:none;">${esc(u.name)}</a><div style="font:400 12px Helvetica,Arial,sans-serif;color:#74685e;">${u.followers} follower${u.followers === 1 ? "" : "s"}</div></td>
+      <td style="padding:9px 10px;font:600 14.5px Helvetica,Arial,sans-serif;color:#2a211c;"><a href="${SITE}/${esc(encodeURIComponent(u.key))}" style="color:#2a211c;text-decoration:none;">${esc(u.name)}</a><div style="font:400 12px Helvetica,Arial,sans-serif;color:#74685e;">${u.followers} follower${u.followers === 1 ? "" : "s"} &middot; ${u.keeps ?? 0} keep${u.keeps === 1 ? "" : "s"}</div></td>
       <td align="right" style="padding:9px 0;"><a href="${SITE}/?follow=${esc(u.user_id)}" style="display:inline-block;padding:8px 14px;border-radius:999px;background:#2a211c;color:#f7f1e8;font:600 13px Helvetica,Arial,sans-serif;text-decoration:none;">Follow</a></td>
     </tr></table>`).join(""), "20px 18px 14px") : "";
 
@@ -106,7 +106,7 @@ function render(d: Digest) {
     <td align="right" style="font:400 12px Helvetica,Arial,sans-serif;color:#74685e;">${esc(dateLine())}</td></tr></table></td></tr>
   ${hero}${people}${followers}${whoToFollow}
   <tr><td align="center" style="padding:6px 8px 0;font:400 12px/1.55 Helvetica,Arial,sans-serif;color:#74685e;">
-    You&rsquo;re receiving this because you<br>have &ldquo;Sunday dinner pick&rdquo; turned on<br><br>
+    You&rsquo;re receiving this because you<br>have &ldquo;Sunday dinner pick&rdquo; turned on.<br><br>
     <a href="${unsub}" style="color:#74685e;">Turn it off</a> &middot; <a href="${SITE}/privacy.html" style="color:#74685e;">Privacy</a><br><br>
     Forks is made with &#10084;&#65039; for Kelly
   </td></tr>
@@ -117,7 +117,7 @@ function render(d: Digest) {
     https(p.url), "",
     ...d.people.map((pp) => `${pp.name} kept ${pp.n} this week: ${pp.recipes.map((r) => r.title).join(", ")}`),
     ...(n ? ["", `${n} new follower${n === 1 ? "" : "s"}: ${d.new_followers.map((f) => f.name).join(", ")}. See them: ${SITE}/?view=followers`] : []),
-    ...(!n && sugg.length ? ["", `Who to follow: ${sugg.map((u) => `${u.name} ${SITE}/${encodeURIComponent(u.key)}`).join(", ")}`] : []),
+    ...(!n && sugg.length ? ["", `Who to follow: ${sugg.map((u) => `${u.name} (${u.followers} follower${u.followers === 1 ? "" : "s"}, ${u.keeps ?? 0} keep${u.keeps === 1 ? "" : "s"}) ${SITE}/${encodeURIComponent(u.key)}`).join(", ")}`] : []),
     "", `Turn off Sunday dinner pick: ${unsub}`,
   ].join("\n");
 
