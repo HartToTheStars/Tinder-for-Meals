@@ -112,10 +112,11 @@ main { flex: 1; display: flex; flex-direction: column; }
 .card {
   position: absolute; inset: 0; border-radius: var(--r); overflow: hidden; background: var(--paper);
   box-shadow: var(--shadow); touch-action: none; user-select: none; will-change: transform;
-  transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s;
+  transition: transform .5s cubic-bezier(.34,1.4,.64,1), opacity .35s; /* springy: the next card bounces up into place */
 }
 .card.dragging { transition: none; cursor: grabbing; }
 .card.gone { z-index: 10; pointer-events: none; }
+.deck .card.gone { opacity: 1; } /* it sits first in the DOM, so the deep-stack rules would hide it mid-slam */
 .card:nth-last-child(2) { transform: scale(.95) translateY(24px); }
 .card:nth-last-child(3) { transform: scale(.9) translateY(46px); opacity: .6; }
 .card:nth-last-child(n+4) { opacity: 0; transform: scale(.88) translateY(46px); }
