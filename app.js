@@ -324,7 +324,8 @@ function reshuffle() {
   state.deck = [];
   state.dry = false;
   dealt = true;
-  deckMsg.hidden = true;
+  deckMsg.innerHTML = `<div class="spinner"></div><p>Setting the table…</p>`;
+  deckMsg.hidden = false;
   clearTimeout(reshuffle.t);
   reshuffle.t = setTimeout(refill, 150);
 }
@@ -423,6 +424,7 @@ const sheetOpen = () => ["#break", "#save", "#acct", "#people", "#landing", "#na
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const buzz = (pattern) => { try { navigator.vibrate?.(pattern); } catch (e) { /* not supported */ } };
 async function stampSlam(el, stamp, s, f) {
+  const dragged = !!f;
   f = f || { dx: 0, dy: 0 };
   el.style.transition = "none";
   const from = `translate(${f.dx}px, ${f.dy}px) rotate(${f.dx / 14}deg)`;
@@ -433,15 +435,24 @@ async function stampSlam(el, stamp, s, f) {
     return;
   }
   const span = stamp.querySelector("span"), rot = s > 0 ? -10 : 10;
-  const lean = `translate(${s * 54 + f.dx * 0.25}px, ${f.dy * 0.5}px) rotate(${s * 5}deg)`;
-  el.animate([{ transform: from }, { transform: lean }], { duration: 140, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
-  stamp.animate([{ opacity: shown }, { opacity: 1 }], { duration: 90, fill: "forwards" });
-  await span.animate([
+  // Dragged: the card stays where you let go (just a small nudge onward), and the stamp that's already
+  // showing pops instead of starting over. Button / arrow key: lean out first, then the full slam.
+  const lx = dragged ? f.dx + s * 12 : s * 54, ly = dragged ? f.dy : 0, lr = dragged ? f.dx / 14 + s * 1.5 : s * 5;
+  const lean = `translate(${lx}px, ${ly}px) rotate(${lr}deg)`;
+  el.animate([{ transform: from }, { transform: lean }], { duration: dragged ? 90 : 140, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+  stamp.style.opacity = 1;
+  if (!dragged) stamp.animate([{ opacity: shown }, { opacity: 1 }], { duration: 90, fill: "forwards" });
+  await span.animate(dragged && shown > 0.4 ? [
+    { transform: `scale(1) rotate(${rot}deg)` },
+    { transform: `scale(1.28) rotate(${rot * 1.4}deg)`, offset: 0.35 },
+    { transform: `scale(.94) rotate(${rot}deg)`, offset: 0.7 },
+    { transform: `scale(1) rotate(${rot}deg)` },
+  ] : [
     { transform: `scale(2.4) rotate(${rot * 2.2}deg)`, opacity: 0 },
     { transform: `scale(.86) rotate(${rot}deg)`, opacity: 1, offset: 0.55 },
     { transform: `scale(1.06) rotate(${rot}deg)`, offset: 0.78 },
     { transform: `scale(1) rotate(${rot}deg)`, opacity: 1 },
-  ], { duration: 300, easing: "cubic-bezier(.2,.7,.3,1)", fill: "forwards" }).finished;
+  ], { duration: dragged ? 240 : 300, easing: "cubic-bezier(.2,.7,.3,1)", fill: "forwards" }).finished;
   buzz(s > 0 ? [14] : [8, 40, 8]);
   await el.animate([
     { transform: lean },
@@ -449,16 +460,16 @@ async function stampSlam(el, stamp, s, f) {
     { transform: `${lean} translate(${s * 3}px, -1px)` },
     { transform: lean },
   ], { duration: 140, fill: "forwards" }).finished;
-  await sleep(150);
-  // Throw: solid until it's off screen, a little spin, a short fade at the very end.
+  await sleep(dragged ? 90 : 150);
+  // Throw onward from wherever it is: solid until it's off screen, a little spin, a short fade at the very end.
   const w = window.innerWidth, cw = el.offsetWidth;
-  const tx = s * (w + cw * 0.9), ty = -60, x0 = s * 54, r0 = s * 5, r1 = r0 + s * 42;
+  const tx = s * (w + cw * 0.9), ty = ly - 60, r1 = lr + s * 40;
   await el.animate([
     { transform: lean, opacity: 1 },
-    { transform: `translate(${x0 + (tx - x0) * 0.55}px, ${ty * 0.55}px) rotate(${r0 + (r1 - r0) * 0.6}deg)`, opacity: 1, offset: 0.5 },
+    { transform: `translate(${lx + (tx - lx) * 0.55}px, ${ly + (ty - ly) * 0.55}px) rotate(${lr + (r1 - lr) * 0.6}deg)`, opacity: 1, offset: 0.5 },
     { transform: `translate(${tx}px, ${ty}px) rotate(${r1}deg)`, opacity: 1, offset: 0.92 },
     { transform: `translate(${tx * 1.04}px, ${ty}px) rotate(${r1}deg)`, opacity: 0 },
-  ], { duration: 480, easing: "cubic-bezier(.22,.61,.36,1)", fill: "forwards" }).finished;
+  ], { duration: dragged ? 420 : 480, easing: "cubic-bezier(.22,.61,.36,1)", fill: "forwards" }).finished;
 }
 
 async function swipe(liked, evt) {
