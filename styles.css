@@ -662,3 +662,36 @@ a.src-row:hover { background: var(--bg); }
 /* "Staging" badge (never shown on forkslist.com) */
 .env-badge { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 4px); left: 50%; transform: translateX(-50%); z-index: 90; pointer-events: none;
   padding: 3px 10px; border-radius: 999px; background: #3b5bdb; color: #fff; font: 700 10.5px/1.4 var(--sans); letter-spacing: .08em; text-transform: uppercase; box-shadow: 0 2px 8px rgb(0 0 0 / .2); }
+
+/* wide but short (iPhone Fold open, landscape phones): filters + buttons on the left, a tall card on the right,
+   instead of a phone column squashing the card into a letterbox */
+@media (min-width: 700px) and (max-width: 999px) and (min-aspect-ratio: 5/4) {
+  .home .app { max-width: 980px; padding: 0 24px; }
+  .home .top { padding: 12px 0 14px; }
+  .home #view-swipe.is-active {
+    display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); grid-template-rows: auto auto 1fr auto;
+    column-gap: 32px; align-items: start;
+  }
+  .home #view-swipe .cats { grid-column: 1; grid-row: 1; }
+  .home #view-swipe .tags {
+    grid-column: 1; grid-row: 2; flex-wrap: wrap; overflow: visible; margin: 0;
+    -webkit-mask-image: none; mask-image: none;
+  }
+  .home #view-swipe .deck {
+    grid-column: 2; grid-row: 1 / -1; justify-self: center; align-self: stretch;
+    height: 100%; aspect-ratio: 4 / 5; max-width: 100%; min-height: 0; max-height: none; margin: 0 0 8px;
+  }
+  .home #view-swipe .actions { grid-column: 1; grid-row: 4; padding: 0 0 calc(8px + env(safe-area-inset-bottom)); }
+  .home #view-kept { width: 100%; max-width: 560px; margin: 0 auto; }
+  .home .card h2 { font-size: 30px; }
+  .home .card p { display: -webkit-box; }
+  .home:has(#view-swipe.is-active) .foot { padding: 8px 0 calc(6px + env(safe-area-inset-bottom)); }
+}
+/* landscape phones: very little height, so drop the footer and tighten up */
+@media (min-width: 700px) and (max-width: 999px) and (min-aspect-ratio: 5/4) and (max-height: 480px) {
+  .home .top { padding: 8px 0 8px; }
+  .home:has(#view-swipe.is-active) .foot { display: none; }
+  .home #view-swipe .deck { margin-bottom: 12px; }
+  .home .card h2 { font-size: 24px; }
+  .home .card p { display: none; }
+}
