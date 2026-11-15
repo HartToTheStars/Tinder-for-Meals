@@ -32,3 +32,17 @@ AS $function$
   where s.liked and s.recipe_id = any(p_ids)
   group by s.recipe_id;
 $function$;
+
+-- Same fix for meals_people_v2 (the app switched to it; it also returns color).
+CREATE OR REPLACE FUNCTION public.meals_people_v2(p_ids uuid[] DEFAULT '{}'::uuid[])
+ RETURNS TABLE(user_id uuid, handle text, name text, color text, keeps bigint, is_featured boolean)
+ LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $function$
+  select p.user_id, case when p.is_public then p.handle else p.share_code end, p.name, p.color,
+    (select count(*) from meals_user_swipes s where s.user_id = p.user_id and s.liked), p.is_featured
+  from meals_profiles p
+  where (p.is_public and p.is_featured)
+     or p.user_id = any(coalesce(p_ids, '{}'))
+     or p.user_id in (select followee from meals_follows where follower = auth.uid())
+  order by p.is_featured desc, p.name;
+$function$;
