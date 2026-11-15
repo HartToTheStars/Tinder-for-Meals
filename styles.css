@@ -559,3 +559,4 @@ button.kept-by { cursor: pointer; }
 .card { transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s, filter .35s; }
 .card.gone { filter: none; }
 .home #view-swipe .deck { margin-bottom: 18px; }
+.acct-privacy { display: block; margin-top: 0 !important; padding-bottom: 2px; text-underline-offset: 2px; }
