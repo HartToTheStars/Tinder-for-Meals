@@ -8,7 +8,7 @@ import hashlib, json, mimetypes, os, sys, urllib.error, urllib.request
 
 SLUG = "humble-aura-cbq3"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-APP = ["index.html", "styles.css", "app.js", "icons.js", "privacy.html", "sources.html"]
+APP = ["index.html", "styles.css", "app.js", "icons.js", "privacy.html", "sources.html", "lab.html"]
 KEY = os.environ.get("HERENOW_API_KEY", "proxy-injected")
 HEADERS = {"content-type": "application/json", "X-HereNow-Client": "claude-code/direct-api", "Authorization": f"Bearer {KEY}"}
 

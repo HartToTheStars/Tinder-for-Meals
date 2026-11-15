@@ -1,6 +1,7 @@
 // Renders Open Graph share images (1200x630 JPEG) with headless Chromium.
 //   node tools/og/render.js            -> og/site.jpg + og/<recipe-id>.jpg for every recipe missing one
 //   node tools/og/render.js --all      -> re-render everything
+//   node tools/og/render.js --site     -> only og/site.jpg
 // Output goes to ./og, which is published with the site at https://forkslist.com/og/...
 const { chromium } = require("playwright");
 const fs = require("fs");
@@ -49,7 +50,7 @@ const recipeHTML = (r) => `<!doctype html><html><head>${BASE}<style>
 </body></html>`;
 
 // Site image: wordmark + tagline on the left; on the right, the app's swipe moment:
-// a stack of meal cards with the top one tilting right under the green KEEP mask.
+// a fanned stack of three meal cards with the top one tilting right under the green KEEP mask.
 const siteHTML = (imgs) => `<!doctype html><html><head>${BASE}<style>
   .left { position: absolute; left: 84px; top: 0; bottom: 0; width: 470px; display: flex; flex-direction: column; justify-content: center; z-index: 5; }
   .big { font-size: 132px; line-height: .9; }
@@ -60,8 +61,8 @@ const siteHTML = (imgs) => `<!doctype html><html><head>${BASE}<style>
   .keep span { font-family: Fraunces, serif; font-weight: 700; color: #fff; font-size: 72px; border: 7px solid #fff; border-radius: 18px; padding: 2px 22px; transform: rotate(-10deg); }
 </style></head><body>
   <div class="left"><div class="mark big">forks<i>.</i></div><div class="tl">meet your next meal.</div></div>
-  <div class="card" style="left:640px; top:100px; width:330px; height:440px; transform:rotate(2deg) scale(.94); opacity:.8"><img src="${esc(imgs[2])}" referrerpolicy="no-referrer"></div>
-  <div class="card" style="left:630px; top:86px; width:340px; height:450px; transform:rotate(-1deg) scale(.97)"><img src="${esc(imgs[1])}" referrerpolicy="no-referrer"></div>
+  <div class="card" style="left:572px; top:104px; width:330px; height:440px; transform:rotate(-9deg) scale(.92)"><img src="${esc(imgs[2])}" referrerpolicy="no-referrer"></div>
+  <div class="card" style="left:628px; top:88px; width:340px; height:455px; transform:rotate(-2deg) scale(.96)"><img src="${esc(imgs[1])}" referrerpolicy="no-referrer"></div>
   <div class="card" style="left:690px; top:70px; width:350px; height:470px; transform:rotate(8deg); z-index:3">
     <img src="${esc(imgs[0])}" referrerpolicy="no-referrer"><div class="keep"><span>KEEP</span></div>
   </div>
@@ -95,6 +96,7 @@ async function shoot(page, html, file) {
     .filter((v, i, a) => a.indexOf(v) === i).slice(0, 3);
   await shoot(sitePage, siteHTML(picks), path.join(OUT, "site.jpg"));
   console.log("site.jpg");
+  if (process.argv.includes("--site")) { await browser.close(); return; }
 
   let done = 0, noPhoto = 0;
   const queue = [...todo];

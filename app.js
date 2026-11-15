@@ -255,7 +255,7 @@ function render() {
   deckEl.querySelectorAll(".card.gone").forEach((g) => deckEl.insertBefore(g, deckEl.firstChild));
 
   const top = topCard();
-  if (top) { bindDrag(top); maybeTeach(top); }
+  if (top) bindDrag(top);
   const cur = state.deck[state.deck.length - 1];
   $("#btnOpen").href = cur ? cur.url : "#";
   // Desktop: the stage glows with a blur of the top card's photo.
@@ -279,8 +279,27 @@ function render() {
     $("#btnHarvest")?.addEventListener("click", harvest);
     $("#btnAll")?.addEventListener("click", () => setCat(""));
     $("#btnClearTags")?.addEventListener("click", () => { state.want.clear(); onWantChange(); });
-  } else deckMsg.hidden = true;
+  } else if (!deckMsg.hidden && !deckEl.classList.contains("waiting")) {
+    // Coming from an empty deck: keep "Setting the table" up until the top photo has actually loaded.
+    const img = top?.querySelector("img");
+    if (img && !img.complete) {
+      deckMsg.innerHTML = `<div class="spinner"></div><p>Setting the table…</p>`;
+      deckEl.classList.add("waiting");
+      const reveal = () => {
+        clearTimeout(reveal.t);
+        if (!deckEl.classList.contains("waiting")) return;
+        deckEl.classList.remove("waiting");
+        deckMsg.hidden = true;
+        const t = topCard();
+        if (t) maybeTeach(t);
+      };
+      img.addEventListener("load", reveal, { once: true });
+      img.addEventListener("error", reveal, { once: true });
+      reveal.t = setTimeout(reveal, 6000); // slow image host: don't hold the deck forever
+    } else deckMsg.hidden = true;
+  } else if (!deckEl.classList.contains("waiting")) deckMsg.hidden = true;
 
+  if (top && !deckEl.classList.contains("waiting")) maybeTeach(top);
   if (state.deck.length < 5 && !state.dry && !state.busy) refill();
 }
 
@@ -314,8 +333,26 @@ $("#cats").addEventListener("click", (e) => { const b = e.target.closest(".cat")
 // One-time intro: lean right (KEEP), then left (NOPE), then settle.
 let taught = false;
 function maybeTeach(el) {
-  if (taught || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  taught = true;
+  if (taught || deckEl.classList.contains("waiting")) return;
+  if (teach(el)) { taught = true; armIdle(); }
+}
+// Sitting on the deck without swiping: lean KEEP / NOPE again as a nudge.
+const IDLE_MS = 7000;
+let idleT = 0;
+function armIdle(extra = 0) { clearTimeout(idleT); idleT = setTimeout(idleNudge, IDLE_MS + extra); }
+function idleNudge() {
+  const el = topCard();
+  const deckShowing = deckEl.offsetParent !== null && !deckEl.classList.contains("waiting");
+  if (!el || document.hidden || sheetOpen() || !deckShowing || el.classList.contains("dragging")) return armIdle();
+  if (teach(el, 0)) armIdle(1800);
+  else armIdle();
+}
+["pointerdown", "keydown", "wheel", "touchstart"].forEach((t) => addEventListener(t, () => armIdle(), { passive: true }));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) armIdle(); });
+
+function teach(el, delay = 500) {
+  if (el._teaching || matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+  el._teaching = true;
   const like = el.querySelector(".stamp-like"), nope = el.querySelector(".stamp-nope");
   const lean = (x, r) => `translate(${x}px, 0) rotate(${r}deg)`;
   const card = el.animate([
@@ -325,17 +362,18 @@ function maybeTeach(el) {
     { transform: lean(-36, -3), offset: 0.62 },
     { transform: lean(-36, -3), offset: 0.78 },
     { transform: lean(0, 0), offset: 1 },
-  ], { duration: 1800, delay: 500, easing: "cubic-bezier(.45,0,.25,1)", fill: "forwards" });
+  ], { duration: 1800, delay, easing: "cubic-bezier(.45,0,.25,1)", fill: "forwards" });
   const fade = (stamp, a, b, c, d) => stamp.animate([
     { opacity: 0, offset: 0 }, { opacity: 0, offset: a }, { opacity: 0.9, offset: b },
     { opacity: 0.9, offset: c }, { opacity: 0, offset: d }, { opacity: 0, offset: 1 },
-  ], { duration: 1800, delay: 500, fill: "forwards" });
+  ], { duration: 1800, delay, fill: "forwards" });
   const anims = [card, fade(like, 0.05, 0.22, 0.38, 0.5), fade(nope, 0.5, 0.62, 0.78, 0.92)];
-  const stop = () => anims.forEach((a) => a.cancel());
+  const stop = () => { anims.forEach((a) => a.cancel()); el._teaching = false; };
   card.finished.then(stop).catch(() => {});
   el.addEventListener("pointerdown", stop, { once: true });
   document.addEventListener("keydown", stop, { once: true });
   el._stopTeach = stop;
+  return true;
 }
 
 function bindDrag(el) {

@@ -598,3 +598,6 @@ a.src-row:hover { background: var(--bg); }
 .src-check svg { width: 30px; height: 30px; stroke-width: 2.6; }
 .src-again { margin-top: 8px; padding: 10px; color: var(--muted); font-size: 14px; font-weight: 500; }
 .foot-heart { display: inline-flex; }
+
+/* Deck holds behind "Setting the table" until the top photo has loaded */
+.deck.waiting .card { visibility: hidden; animation-play-state: paused; }

@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<meta name="theme-color" content="#f7f1e8" />
+<title>Forks Swipe Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* forks' own tokens; phone-first single column, deck fills the middle */
+:root {
+  --bg: #f7f1e8; --paper: #fffdf9; --ink: #2a211c; --muted: #74685e; --line: #e9dfd2;
+  --tomato: #e8553e; --basil: #3f9b6b; --keep: rgb(108 214 150 / .82); --nope: rgb(255 118 98 / .82);
+  --shadow: 0 1px 2px rgb(42 33 28 / .06), 0 12px 32px -12px rgb(42 33 28 / .28);
+  --serif: "Fraunces", Georgia, serif; --sans: "Inter", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #1b1714; --paper: #26201c; --ink: #f3ebe2; --muted: #b8aa9c; --line: #3a312b;
+  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 16px 40px -14px rgb(0 0 0 / .7); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #1b1714; --paper: #26201c; --ink: #f3ebe2; --muted: #b8aa9c; --line: #3a312b;
+  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 16px 40px -14px rgb(0 0 0 / .7); color-scheme: dark; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; overscroll-behavior: none; overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--tomato); outline-offset: 2px; }
+.app { max-width: 460px; height: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: max(10px, env(safe-area-inset-bottom, 0px)); }
+.top { display: flex; align-items: center; justify-content: space-between; }
+.logo { font-family: var(--serif); font-weight: 700; font-size: 24px; letter-spacing: -.02em; }
+.logo span { color: var(--tomato); }
+.logo small { font-family: var(--sans); font-weight: 500; font-size: 13px; color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+.kept { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); font-size: 14px; font-weight: 500; }
+.kept b { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--tomato); color: #fff; font-size: 12px; display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+.variants { display: flex; flex-wrap: wrap; gap: 6px; }
+.variants button { padding: 8px 12px; border-radius: 999px; font-size: 13.5px; font-weight: 500; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); }
+.variants button[aria-pressed="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
+.about { font-size: 13.5px; line-height: 1.45; color: var(--muted); min-height: 2.9em; }
+.about b { color: var(--ink); font-weight: 600; }
+.deck { position: relative; flex: 1 1 auto; min-height: 0; }
+.card { position: absolute; inset: 0; border-radius: 22px; overflow: hidden; background: var(--line); box-shadow: var(--shadow);
+  touch-action: none; user-select: none; -webkit-user-select: none; will-change: transform;
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s; }
+.springy .card { transition: transform .55s cubic-bezier(.34,1.5,.64,1), opacity .3s; }
+.card.dragging, .card.gone { transition: none; }
+.card.gone { z-index: 10; pointer-events: none; }
+.card:nth-last-child(2) { transform: scale(.95) translateY(22px); }
+.card:nth-last-child(3) { transform: scale(.9) translateY(42px); opacity: .6; }
+.card:nth-last-child(n+4) { transform: scale(.88) translateY(42px); opacity: 0; }
+.card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.card::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgb(20 14 10 / .85), rgb(20 14 10 / .3) 38%, transparent 62%); pointer-events: none; }
+.body { position: absolute; left: 0; right: 0; bottom: 0; padding: 20px; color: #fff; z-index: 1; }
+.src { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 5px 9px; border-radius: 999px; background: rgb(255 255 255 / .18); margin-bottom: 8px; }
+.card h2 { font-family: var(--serif); font-weight: 600; font-size: 26px; line-height: 1.1; text-wrap: balance; text-transform: none; }
+.stamp { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; opacity: 0; pointer-events: none;
+  font-family: var(--serif); font-weight: 700; font-size: clamp(54px, 17vw, 78px); color: #fff; text-shadow: 0 2px 18px rgb(0 0 0 / .18); }
+.stamp span { display: inline-block; padding: 4px 24px; border: 6px solid #fff; border-radius: 20px; }
+.keep { background: var(--keep); } .keep span { transform: rotate(-10deg); }
+.nope { background: var(--nope); } .nope span { transform: rotate(10deg); }
+.actions { display: flex; justify-content: center; align-items: center; gap: 18px; padding-top: 4px; }
+.act { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--paper); box-shadow: var(--shadow); transition: transform .15s; }
+.act:active { transform: scale(.9); }
+.act svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.act-nope { color: var(--tomato); } .act-keep { color: var(--basil); }
+.act-small { width: 46px; height: 46px; color: var(--muted); } .act-small svg { width: 20px; height: 20px; }
+.speed { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); justify-content: center; }
+.speed input { width: 140px; accent-color: var(--tomato); }
+.speed output { min-width: 3.2em; font-variant-numeric: tabular-nums; }
+.fx { position: fixed; inset: 0; pointer-events: none; z-index: 50; overflow: hidden; }
+.fx i { position: absolute; left: 0; top: 0; width: 18px; height: 18px; margin: -9px; }
+.fx i svg { width: 100%; height: 100%; }
+.glow { position: fixed; top: 0; bottom: 0; width: 38vw; pointer-events: none; z-index: 40; opacity: 0; }
+.glow.l { left: 0; background: linear-gradient(to right, rgb(255 118 98 / .35), transparent); }
+.glow.r { right: 0; background: linear-gradient(to left, rgb(108 214 150 / .35), transparent); }
+@media (prefers-reduced-motion: reduce) { .card, .springy .card { transition: opacity .2s; } }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="logo" href="./" style="color: inherit; text-decoration: none;">forks<span>.</span><small>swipe lab</small></a>
+    <div class="kept" id="kept">Kept <b id="keptN">0</b></div>
+  </header>
+  <div class="variants" id="variants" role="group" aria-label="Swipe style"></div>
+  <p class="about" id="about"></p>
+  <div class="deck" id="deck" aria-live="polite"></div>
+  <div class="actions">
+    <button class="act act-small" id="undo" aria-label="Bring back last card" title="Bring back last card"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+    <button class="act act-nope" id="nopeBtn" aria-label="Pass"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <button class="act act-keep" id="keepBtn" aria-label="Keep"><svg viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    <span class="act-small" aria-hidden="true"></span>
+  </div>
+  <label class="speed" for="speed">Speed <input id="speed" type="range" min="0.6" max="1.6" step="0.05" value="1"><output id="speedOut">1.00×</output></label>
+</div>
+<div class="glow l" id="glowL"></div><div class="glow r" id="glowR"></div>
+<div class="fx" id="fx"></div>
+
+<script>
+const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtd3N5bG9mZ2ZvY21icXZtZ2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMDg1NTMsImV4cCI6MjEwMDU4NDU1M30.Jxsz_HK6jE4y2T36RJMtRWpaXlk0ugyEL2b7CXTrgE8";
+let RECIPES = [];
+const VARIANTS = [
+  { id: "slam", name: "Stamp slam", about: "<b>A beat of verdict.</b> KEEP or NOPE slams on with a little shake and a buzz, holds, then the card flies." },
+  { id: "pile", name: "Into the pile", about: "<b>Keeps go somewhere.</b> Kept cards shrink and arc into the Kept counter. Passes drop off the bottom with gravity." },
+  { id: "all", name: "Everything", about: "<b>Full juice.</b> Stamp slam, then keeps arc into the counter with a heart burst; passes drop with a red edge flash." },
+];
+const $ = (s) => document.querySelector(s);
+const deck = $("#deck");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let variant = "slam", speed = 1, idx = 0, kept = 0, history = [];
+try { variant = localStorage.getItem("lab:variant") || variant; } catch (e) {}
+if (!VARIANTS.some((v) => v.id === variant)) variant = "slam";
+const T = (ms) => ms * speed;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const buzz = (p) => { try { navigator.vibrate?.(p); } catch (e) {} };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const titleCase = (s) => s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
+
+function cardEl(r) {
+  const el = document.createElement("article");
+  el.className = "card";
+  el._r = r;
+  el.innerHTML = `<img src="${esc(r.img)}" alt="" referrerpolicy="no-referrer" draggable="false">
+    <div class="body"><span class="src">${esc(r.source)}</span><h2>${esc(titleCase(r.title))}</h2></div>
+    <div class="stamp keep"><span>KEEP</span></div><div class="stamp nope"><span>NOPE</span></div>`;
+  bindDrag(el);
+  return el;
+}
+function fill() {
+  while (deck.children.length - deck.querySelectorAll(".gone").length < 3) {
+    deck.prepend(cardEl(RECIPES[idx++ % RECIPES.length]));
+  }
+}
+const topCard = () => [...deck.children].filter((c) => !c.classList.contains("gone")).pop();
+
+function renderVariants() {
+  $("#variants").innerHTML = VARIANTS.map((v) => `<button type="button" data-v="${v.id}" aria-pressed="${v.id === variant}">${v.name}</button>`).join("");
+  $("#about").innerHTML = VARIANTS.find((v) => v.id === variant).about;
+  deck.classList.toggle("springy", variant !== "now");
+}
+$("#variants").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  variant = b.dataset.v; try { localStorage.setItem("lab:variant", variant); } catch (err) {}
+  renderVariants();
+});
+$("#speed").addEventListener("input", (e) => { speed = 1 / Number(e.target.value); $("#speedOut").textContent = Number(e.target.value).toFixed(2) + "×"; });
+
+// ---------- drag ----------
+function bindDrag(el) {
+  let down = false, sx = 0, sy = 0, dx = 0, dy = 0, samples = [];
+  const keep = el.querySelector(".keep"), nope = el.querySelector(".nope");
+  el.addEventListener("pointerdown", (e) => {
+    if (el !== topCard() || busy) return;
+    down = true; sx = e.clientX; sy = e.clientY; dx = dy = 0; samples = [{ x: 0, y: 0, t: performance.now() }];
+    el.setPointerCapture(e.pointerId); el.classList.add("dragging");
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    dx = e.clientX - sx; dy = e.clientY - sy;
+    const t = performance.now(); samples.push({ x: dx, y: dy, t }); while (samples.length > 2 && t - samples[0].t > 90) samples.shift();
+    el.style.transform = `translate(${dx}px, ${dy * 0.4}px) rotate(${dx / 14}deg)`;
+    keep.style.opacity = Math.max(0, Math.min(1, dx / 90));
+    nope.style.opacity = Math.max(0, Math.min(1, -dx / 90));
+  });
+  const end = () => {
+    if (!down) return; down = false; el.classList.remove("dragging");
+    const a = samples[0], b = samples[samples.length - 1], dt = Math.max(16, b.t - a.t);
+    const vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt;
+    const threshold = Math.min(110, el.offsetWidth * 0.28);
+    const flick = Math.abs(vx) > 0.6 && Math.abs(dx) > 30;
+    if (dx > threshold || (flick && vx > 0)) commit(true, { dx, dy: dy * 0.4, vx, vy, drag: true });
+    else if (dx < -threshold || (flick && vx < 0)) commit(false, { dx, dy: dy * 0.4, vx, vy, drag: true });
+    else { el.style.transform = ""; keep.style.opacity = nope.style.opacity = 0; }
+  };
+  el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+}
+
+// ---------- exits ----------
+let busy = false;
+async function commit(liked, ctx = { dx: 0, dy: 0, vx: 0, vy: 0, drag: false }) {
+  const el = topCard(); if (!el || busy) return;
+  busy = true;
+  const s = liked ? 1 : -1;
+  const stamp = el.querySelector(liked ? ".keep" : ".nope");
+  const from = `translate(${ctx.dx}px, ${ctx.dy}px) rotate(${ctx.dx / 14}deg)`;
+  el.classList.add("gone");
+  el.style.transform = from;
+  history.push({ r: el._r, liked });
+  const done = () => { el.remove(); fill(); };
+  const promote = () => { busy = false; fill(); };
+
+  if (reduce) {
+    stamp.style.opacity = 1;
+    await el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: "forwards" }).finished.catch(() => {});
+    if (liked) bumpKept(); done(); busy = false; return;
+  }
+  const exit = { now: exitNow, toss: exitToss, slam: exitSlam, pile: exitPile, all: exitAll }[variant];
+  await exit(el, stamp, s, liked, ctx, from, promote);
+  done();
+}
+
+function exitNow(el, stamp, s, liked, ctx, from, promote) {
+  const w = innerWidth;
+  if (liked) bumpKept();
+  if (ctx.drag) {
+    stamp.style.opacity = 1;
+    promote();
+    return el.animate([{ transform: from, opacity: 1 }, { transform: `translate(${s * w}px, -40px) rotate(${s * 28}deg)`, opacity: 0 }],
+      { duration: 350, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" }).finished.catch(() => {});
+  }
+  stamp.animate([{ opacity: 0 }, { opacity: 1, offset: 0.35 }, { opacity: 1 }], { duration: 560, fill: "forwards" });
+  setTimeout(promote, 250);
+  return el.animate([
+    { transform: "translate(0,0) rotate(0deg)", opacity: 1 },
+    { transform: `translate(${s * 46}px, -6px) rotate(${s * 6}deg)`, opacity: 1, offset: 0.45 },
+    { transform: `translate(${s * w}px, -40px) rotate(${s * 28}deg)`, opacity: 0 },
+  ], { duration: 560, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" }).finished.catch(() => {});
+}
+
+// Throw along the release velocity; solid until it clears the screen.
+function throwAway(el, s, ctx, from, base = 620) {
+  const w = innerWidth, cw = el.offsetWidth;
+  const v = Math.max(Math.abs(ctx.vx), 1.1);
+  const tx = s * (w + cw * 0.9), ty = ctx.dy + Math.max(-260, Math.min(260, (ctx.vy / v) * (w + cw))) - 30;
+  const dist = Math.hypot(tx - ctx.dx, ty - ctx.dy);
+  const dur = T(Math.max(420, Math.min(base + 200, (dist / v) * 1.4)));
+  const r0 = ctx.dx / 14, r1 = r0 + s * (24 + Math.min(30, v * 10));
+  return el.animate([
+    { transform: from, opacity: 1 },
+    { transform: `translate(${ctx.dx + (tx - ctx.dx) * 0.55}px, ${ctx.dy + (ty - ctx.dy) * 0.55}px) rotate(${r0 + (r1 - r0) * 0.6}deg)`, opacity: 1, offset: 0.5 },
+    { transform: `translate(${tx}px, ${ty}px) rotate(${r1}deg)`, opacity: 1, offset: 0.92 },
+    { transform: `translate(${tx * 1.04}px, ${ty}px) rotate(${r1}deg)`, opacity: 0 },
+  ], { duration: dur, easing: "cubic-bezier(.22,.61,.36,1)", fill: "forwards" }).finished.catch(() => {});
+}
+
+async function exitToss(el, stamp, s, liked, ctx, from, promote) {
+  stamp.animate([{ opacity: Number(stamp.style.opacity) || 0 }, { opacity: 1 }], { duration: T(120), fill: "forwards" });
+  if (!ctx.drag) {
+    // Button: a quick wind-up the other way, then the throw.
+    await el.animate([{ transform: from }, { transform: `translate(${-s * 14}px, 4px) rotate(${-s * 2}deg)` }],
+      { duration: T(130), easing: "cubic-bezier(.3,0,.5,1)", fill: "forwards" }).finished.catch(() => {});
+    from = `translate(${-s * 14}px, 4px) rotate(${-s * 2}deg)`;
+    ctx = { ...ctx, dx: -s * 14, dy: 4, vx: s * 2.2, vy: -0.3 };
+  }
+  if (liked) bumpKept();
+  setTimeout(promote, T(90));
+  return throwAway(el, s, ctx, from);
+}
+
+async function slamStamp(el, stamp, s, ctx, from) {
+  const span = stamp.querySelector("span"), rot = s > 0 ? -10 : 10;
+  const lean = `translate(${s * 54 + ctx.dx * 0.25}px, ${ctx.dy * 0.5}px) rotate(${s * 5}deg)`;
+  el.animate([{ transform: from }, { transform: lean }], { duration: T(140), easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+  stamp.animate([{ opacity: Number(stamp.style.opacity) || 0 }, { opacity: 1 }], { duration: T(90), fill: "forwards" });
+  await span.animate([
+    { transform: `scale(2.4) rotate(${rot * 2.2}deg)`, opacity: 0 },
+    { transform: `scale(.86) rotate(${rot}deg)`, opacity: 1, offset: 0.55 },
+    { transform: `scale(1.06) rotate(${rot}deg)`, offset: 0.78 },
+    { transform: `scale(1) rotate(${rot}deg)`, opacity: 1 },
+  ], { duration: T(300), easing: "cubic-bezier(.2,.7,.3,1)", fill: "forwards" }).finished.catch(() => {});
+  buzz(s > 0 ? [14] : [8, 40, 8]);
+  // Impact shake
+  await el.animate([
+    { transform: lean },
+    { transform: `${lean} translate(${-s * 5}px, 2px)` },
+    { transform: `${lean} translate(${s * 3}px, -1px)` },
+    { transform: lean },
+  ], { duration: T(140), fill: "forwards" }).finished.catch(() => {});
+  await wait(T(150));
+  return lean;
+}
+
+async function exitSlam(el, stamp, s, liked, ctx, from, promote) {
+  const lean = await slamStamp(el, stamp, s, ctx, from);
+  if (liked) bumpKept();
+  setTimeout(promote, T(80));
+  return throwAway(el, s, { dx: s * 54, dy: 0, vx: s * 1.8, vy: -0.2 }, lean, 480);
+}
+
+function intoCounter(el, from, s) {
+  const c = $("#kept").getBoundingClientRect(), r = el.getBoundingClientRect();
+  const tx = c.left + c.width / 2 - (r.left + r.width / 2), ty = c.top + c.height / 2 - (r.top + r.height / 2);
+  return el.animate([
+    { transform: from, opacity: 1, borderRadius: "22px" },
+    { transform: `translate(${tx * 0.35 + s * 30}px, ${ty * 0.2 - 60}px) rotate(${s * 8}deg) scale(.62)`, opacity: 1, offset: 0.4 },
+    { transform: `translate(${tx}px, ${ty}px) rotate(${s * 14}deg) scale(.06)`, opacity: 0.9, borderRadius: "60px", offset: 0.94 },
+    { transform: `translate(${tx}px, ${ty}px) rotate(${s * 14}deg) scale(.03)`, opacity: 0, borderRadius: "60px" },
+  ], { duration: T(720), easing: "cubic-bezier(.55,0,.35,1)", fill: "forwards" }).finished.catch(() => {});
+}
+function dropAway(el, from, ctx, s) {
+  const h = innerHeight;
+  return el.animate([
+    { transform: from, opacity: 1 },
+    { transform: `translate(${ctx.dx + s * 18}px, ${ctx.dy - 26}px) rotate(${ctx.dx / 14 + s * 4}deg)`, opacity: 1, offset: 0.18 },
+    { transform: `translate(${ctx.dx + s * 70}px, ${h * 1.1}px) rotate(${ctx.dx / 14 + s * 38}deg)`, opacity: 0.85 },
+  ], { duration: T(680), easing: "cubic-bezier(.45,0,.9,.55)", fill: "forwards" }).finished.catch(() => {});
+}
+
+async function exitPile(el, stamp, s, liked, ctx, from, promote) {
+  stamp.animate([{ opacity: Number(stamp.style.opacity) || 0 }, { opacity: 1 }], { duration: T(140), fill: "forwards" });
+  await wait(T(120));
+  setTimeout(promote, T(160));
+  if (liked) { await intoCounter(el, from, s); bumpKept(true); }
+  else { buzz(8); await dropAway(el, from, ctx, s); }
+}
+
+async function exitAll(el, stamp, s, liked, ctx, from, promote) {
+  const lean = await slamStamp(el, stamp, s, ctx, from);
+  setTimeout(promote, T(140));
+  if (liked) {
+    const r = el.getBoundingClientRect();
+    burst(r.left + r.width / 2, r.top + r.height * 0.45, "heart", 10);
+    await intoCounter(el, lean, s);
+    bumpKept(true);
+    const c = $("#kept").getBoundingClientRect();
+    burst(c.left + c.width / 2, c.top + c.height / 2, "heart", 7, 0.55);
+  } else {
+    flash($("#glowL"));
+    await dropAway(el, lean, { dx: s * 54, dy: 0 }, s);
+  }
+}
+
+// ---------- feedback ----------
+function bumpKept(big) {
+  kept++; $("#keptN").textContent = kept;
+  if (reduce) return;
+  $("#keptN").animate([{ transform: "scale(1)" }, { transform: `scale(${big ? 1.7 : 1.4})` }, { transform: "scale(1)" }],
+    { duration: 420, easing: "cubic-bezier(.3,1.6,.5,1)" });
+  if (big) { buzz(10); $("#kept").animate([{ transform: "scale(1)" }, { transform: "scale(1.08)" }, { transform: "scale(1)" }], { duration: 380, easing: "cubic-bezier(.3,1.6,.5,1)" }); }
+}
+const HEART = '<svg viewBox="0 0 24 24" fill="#e8553e"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
+function burst(x, y, kind, n, scale = 1) {
+  const fx = $("#fx");
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("i"); p.innerHTML = HEART; fx.append(p);
+    const a = (Math.PI * 2 * i) / n + Math.random() * 0.6, d = (70 + Math.random() * 80) * scale, sz = (0.6 + Math.random() * 0.8) * scale;
+    p.animate([
+      { transform: `translate(${x}px, ${y}px) scale(0) rotate(0deg)`, opacity: 1 },
+      { transform: `translate(${x + Math.cos(a) * d * 0.7}px, ${y + Math.sin(a) * d * 0.7}px) scale(${sz * 1.2}) rotate(${(Math.random() - 0.5) * 60}deg)`, opacity: 1, offset: 0.45 },
+      { transform: `translate(${x + Math.cos(a) * d}px, ${y + Math.sin(a) * d + 40}px) scale(${sz * 0.6}) rotate(${(Math.random() - 0.5) * 120}deg)`, opacity: 0 },
+    ], { duration: 650 + Math.random() * 300, easing: "cubic-bezier(.2,.8,.3,1)" }).finished.then(() => p.remove(), () => p.remove());
+  }
+}
+function flash(g) { g.animate([{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 0 }], { duration: T(520) }); }
+
+$("#keepBtn").addEventListener("click", () => commit(true));
+$("#nopeBtn").addEventListener("click", () => commit(false));
+$("#undo").addEventListener("click", () => {
+  const last = history.pop();
+  if (busy || !last) return;
+  deck.firstElementChild?.remove(); idx = (idx - 1 + RECIPES.length) % RECIPES.length;
+  if (last.liked) { kept = Math.max(0, kept - 1); $("#keptN").textContent = kept; }
+  const back = cardEl(last.r); deck.append(back);
+  if (!reduce) back.animate([{ transform: "translate(-120%, -30px) rotate(-18deg)" }, { transform: "none" }], { duration: 420, easing: "cubic-bezier(.34,1.4,.64,1)" });
+});
+addEventListener("keydown", (e) => {
+  if (e.target.closest?.("input")) return;
+  if (e.key === "ArrowRight") commit(true);
+  if (e.key === "ArrowLeft") commit(false);
+});
+
+renderVariants();
+(async () => {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/meals_recipes?select=title,source,image&category=eq.main&is_roundup=is.false&image=not.is.null&limit=120`, { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } });
+    const rows = await r.json();
+    RECIPES = rows.map((x) => ({ ...x, img: x.image.replace(/^http:\/\//, "https://") }));
+    for (let i = RECIPES.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [RECIPES[i], RECIPES[j]] = [RECIPES[j], RECIPES[i]]; }
+  } catch (e) { console.error(e); }
+  if (!RECIPES.length) { deck.innerHTML = '<p class="about" style="padding:40px 0;text-align:center">Couldn\'t load recipes. Refresh to try again.</p>'; return; }
+  fill();
+})();
+</script>
+
+</body>
+</html>
