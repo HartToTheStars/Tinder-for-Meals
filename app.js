@@ -248,12 +248,14 @@ function render() {
   const keep = new Set(visible.map((r) => r.id));
   existing.forEach((el, id) => { if (!keep.has(id) && !el.classList.contains("gone")) el.remove(); });
 
-  // DOM order mirrors deck order: last child is the top card.
-  visible.forEach((r) => {
+  // DOM order mirrors deck order: last child is the top card. Cards already on the deck are never moved
+  // (re-inserting a node restarts its deal animation, which made the stack dip); only new ones are inserted.
+  const els = visible.map((r) => {
     let el = existing.get(r.id);
     if (!el || el.classList.contains("gone")) {
       el = document.createElement("article");
       el.className = dealt ? "card deal" : "card";
+      el.addEventListener("animationend", (e) => { if (e.animationName === "deal") el.classList.remove("deal"); });
       el.dataset.id = r.id;
       el.dataset.side = (fanSide = fanSide === "l" ? "r" : "l");
       el.innerHTML = cardHTML(r);
@@ -269,10 +271,19 @@ function render() {
       }
       img.onerror = () => img.remove();
     }
-    if (deckEl.lastElementChild !== el) deckEl.appendChild(el);
+    return el;
   });
-  // Cards flying away sit first in the DOM (so stack math ignores them) but render on top.
-  deckEl.querySelectorAll(".card.gone").forEach((g) => { g.removeAttribute("data-depth"); deckEl.insertBefore(g, deckEl.firstChild); });
+  els.forEach((el, i) => {
+    if (el.isConnected) return;
+    const below = els.slice(0, i).reverse().find((e) => e.isConnected);
+    if (below) below.after(el);
+    else {
+      const above = els.slice(i + 1).find((e) => e.isConnected);
+      above ? above.before(el) : deckEl.appendChild(el);
+    }
+  });
+  // Cards flying away stay where they are in the DOM (moving them would restart animations); they render on top via z-index.
+  deckEl.querySelectorAll(".card.gone").forEach((g) => g.removeAttribute("data-depth"));
   restack();
 
   const top = topCard();
