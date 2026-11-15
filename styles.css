@@ -512,7 +512,7 @@ button.kept-by { cursor: pointer; }
   .home:has(#view-swipe.is-active) main { min-height: 0; }
   .home #view-swipe.is-active { min-height: 0; }
   .home:has(#view-swipe.is-active) .foot { display: none; }
-  .home .top { padding: 12px 0 10px; }
+  .home .top { padding: 14px 0 22px; }
   .home #view-swipe .cats { margin-bottom: 10px; }
   .home #view-swipe .cat { padding: 6px 2px 5px; }
   .home #view-swipe .tags { margin-bottom: 12px; }
