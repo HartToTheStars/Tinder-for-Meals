@@ -14,7 +14,7 @@ finalize this waits and checks the Site's live version instead of reporting fail
 import hashlib, json, mimetypes, os, sys, time, urllib.error, urllib.request
 
 PROD_SLUG = "humble-aura-cbq3"        # https://forkslist.com
-STAGING_SLUG = "forks-staging-pending"  # set after `--create-staging`
+STAGING_SLUG = "bright-jasper-8752"  # https://bright-jasper-8752.here.now (password-protected)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = ["index.html", "styles.css", "app.js", "icons.js", "privacy.html", "sources.html", "lab.html"]
 KEY = os.environ.get("HERENOW_API_KEY", "proxy-injected")
