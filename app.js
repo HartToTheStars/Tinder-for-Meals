@@ -150,6 +150,15 @@ function markCat(el, active) {
 // `only`: show just these tags (plus any selected ones). Null shows all.
 function renderTagRow(el, selected, onToggle, only = el._only ?? null) {
   el._only = only;
+  // Drop the right-edge fade once the row is scrolled to its end (or doesn't scroll at all).
+  if (!el._fadeBound) {
+    el._fadeBound = true;
+    const edge = () => el.classList.toggle("at-end", el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+    el.addEventListener("scroll", edge, { passive: true });
+    addEventListener("resize", edge);
+    el._edge = edge;
+  }
+  requestAnimationFrame(() => el._edge());
   const tick = `<span class="tick">${icon("check")}</span>`;
   const shown = TAGS.filter(([k]) => !only || only.has(k) || selected.has(k));
   el.hidden = !shown.length;
@@ -247,6 +256,15 @@ function render() {
       el.dataset.id = r.id;
       el.innerHTML = cardHTML(r);
       const img = el.querySelector("img");
+      if (!img.complete) {
+        el.classList.add("loading");
+        const shown = () => {
+          el.classList.remove("loading");
+          if (el === topCard()) maybeTeach(el);
+        };
+        img.addEventListener("load", shown, { once: true });
+        img.addEventListener("error", shown, { once: true });
+      }
       img.onerror = () => img.remove();
     }
     if (deckEl.lastElementChild !== el) deckEl.appendChild(el);
@@ -279,27 +297,14 @@ function render() {
     $("#btnHarvest")?.addEventListener("click", harvest);
     $("#btnAll")?.addEventListener("click", () => setCat(""));
     $("#btnClearTags")?.addEventListener("click", () => { state.want.clear(); onWantChange(); });
-  } else if (!deckMsg.hidden && !deckEl.classList.contains("waiting")) {
-    // Coming from an empty deck: keep "Setting the table" up until the top photo has actually loaded.
-    const img = top?.querySelector("img");
-    if (img && !img.complete) {
-      deckMsg.innerHTML = `<div class="spinner"></div><p>Setting the table…</p>`;
-      deckEl.classList.add("waiting");
-      const reveal = () => {
-        clearTimeout(reveal.t);
-        if (!deckEl.classList.contains("waiting")) return;
-        deckEl.classList.remove("waiting");
-        deckMsg.hidden = true;
-        const t = topCard();
-        if (t) maybeTeach(t);
-      };
-      img.addEventListener("load", reveal, { once: true });
-      img.addEventListener("error", reveal, { once: true });
-      reveal.t = setTimeout(reveal, 6000); // slow image host: don't hold the deck forever
-    } else deckMsg.hidden = true;
-  } else if (!deckEl.classList.contains("waiting")) deckMsg.hidden = true;
+  } else {
+    // Always running behind the cards: a card whose photo is still loading is see-through, so this shows,
+    // and the card fades in over it once the photo arrives.
+    if (!deckMsg.querySelector(".spinner")) deckMsg.innerHTML = `<div class="spinner"></div><p>Setting the table…</p>`;
+    deckMsg.hidden = false;
+  }
 
-  if (top && !deckEl.classList.contains("waiting")) maybeTeach(top);
+  if (top && !top.classList.contains("loading")) maybeTeach(top);
   if (state.deck.length < 5 && !state.dry && !state.busy) refill();
 }
 
@@ -333,7 +338,7 @@ $("#cats").addEventListener("click", (e) => { const b = e.target.closest(".cat")
 // One-time intro: lean right (KEEP), then left (NOPE), then settle.
 let taught = false;
 function maybeTeach(el) {
-  if (taught || deckEl.classList.contains("waiting")) return;
+  if (taught || el.classList.contains("loading")) return;
   if (teach(el)) { taught = true; armIdle(); }
 }
 // Sitting on the deck without swiping: lean KEEP / NOPE again as a nudge.
@@ -342,7 +347,7 @@ let idleT = 0;
 function armIdle(extra = 0) { clearTimeout(idleT); idleT = setTimeout(idleNudge, IDLE_MS + extra); }
 function idleNudge() {
   const el = topCard();
-  const deckShowing = deckEl.offsetParent !== null && !deckEl.classList.contains("waiting");
+  const deckShowing = deckEl.offsetParent !== null && !el?.classList.contains("loading");
   if (!el || document.hidden || sheetOpen() || !deckShowing || el.classList.contains("dragging")) return armIdle();
   if (teach(el, 0)) armIdle(1800);
   else armIdle();

@@ -112,7 +112,7 @@ main { flex: 1; display: flex; flex-direction: column; }
 .card {
   position: absolute; inset: 0; border-radius: var(--r); overflow: hidden; background: var(--paper);
   box-shadow: var(--shadow); touch-action: none; user-select: none; will-change: transform;
-  transition: transform .5s cubic-bezier(.34,1.4,.64,1), opacity .35s; /* springy: the next card bounces up into place */
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s;
 }
 .card.dragging { transition: none; cursor: grabbing; }
 .card.gone { z-index: 10; pointer-events: none; }
@@ -557,7 +557,7 @@ button.kept-by { cursor: pointer; }
 .card:nth-last-child(4) { transform: translateX(-26px) rotate(-6deg) scale(.94); opacity: 1; filter: brightness(.68); }
 .card:nth-last-child(5) { transform: translateX(26px) rotate(6deg) scale(.94); opacity: 1; filter: brightness(.68); }
 .card:nth-last-child(n+6) { opacity: 0; transform: scale(.9); }
-.card { transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s, filter .35s; }
+.card { transition: transform .45s cubic-bezier(.34,1.25,.64,1), opacity .35s, filter .35s, background-color .45s, box-shadow .45s; } /* springy settle as the stack moves up */
 .card.gone { filter: none; }
 .home #view-swipe .deck { margin-bottom: 18px; }
 .acct-privacy { display: block; margin-top: 0 !important; padding-bottom: 2px; text-underline-offset: 2px; }
@@ -600,5 +600,17 @@ a.src-row:hover { background: var(--bg); }
 .src-again { margin-top: 8px; padding: 10px; color: var(--muted); font-size: 14px; font-weight: 500; }
 .foot-heart { display: inline-flex; }
 
-/* Deck holds behind "Setting the table" until the top photo has loaded */
-.deck.waiting .card { visibility: hidden; animation-play-state: paused; }
+/* A card whose photo is still loading is see-through, so "Setting the table" (behind the cards) shows; it fades in on load */
+.card > :not(.stamp), .card::after { transition: opacity .45s ease; }
+.card.loading { background: transparent; box-shadow: none; }
+.card.loading > :not(.stamp), .card.loading::after { opacity: 0; }
+
+/* phone: diet/lifestyle filters stay one scrolling row, but clipped to the same edges as the course buttons,
+   with a soft fade on the right that says there's more */
+@media (max-width: 999px) {
+  .tags { margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; scroll-padding-inline: 0;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+  .tags.at-end { -webkit-mask-image: none; mask-image: none; }
+  .tags .tag:last-child { margin-right: 4px; }
+}
