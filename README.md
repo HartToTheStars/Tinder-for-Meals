@@ -4,7 +4,7 @@ Tinder for meals. Swipe right to keep a recipe, left to pass. Kept recipes live 
 
 - **Frontend:** static `index.html` + `styles.css` + `app.js` (no build step).
 - **Data:** Supabase project `side-quests`, tables `meals_recipes` and `meals_swipes`, RPC `meals_deck`.
-- **Recipes:** `supabase/functions/meals-harvest` pulls from Smitten Kitchen, Half Baked Harvest, Bon Appétit and The Kitchn (RSS + sitemaps). Food52 blocks server-side fetches, so it's skipped. Runs weekly (Mondays 09:17 UTC) via pg_cron, with `meals-enrich` every 15 min for the 4 hours after; see `supabase/sql/2026-11-15_weekly_harvest.sql`. Share images (`tools/og/render.js`) are still a manual step.
+- **Recipes:** `supabase/functions/meals-harvest` pulls from Smitten Kitchen, Half Baked Harvest, Bon Appétit and The Kitchn (RSS + sitemaps; The Kitchn's RSS is only its 20 latest posts, mostly shopping and news, so its recipes come from the monthly sitemaps filtered to `-recipe-<id>` URLs). Food52 blocks server-side fetches, so it's skipped. Runs weekly (Mondays 09:17 UTC) via pg_cron, with `meals-enrich` every 15 min for the 4 hours after; see `supabase/sql/2026-11-15_weekly_harvest.sql`. Share images (`tools/og/render.js`) are still a manual step.
 
 Keys: ← pass, → keep, ↑ open recipe, Backspace undo, `/` search.
 

@@ -30,7 +30,7 @@ const clip = (s: string | null | undefined, n = 200) => {
 const titleFromSlug = (url: string) => {
   const slug = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
   const small = new Set(["a", "an", "and", "or", "the", "with", "of", "in", "on", "for", "to"]);
-  return slug.replace(/-\d{5,}$/, "").split("-").map((w, i) => (i && small.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
+  return slug.replace(/-\d{5,}$/, "").replace(/-recipe$/, "").split("-").map((w, i) => (i && small.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
 };
 const shuffle = <T,>(a: T[]) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
@@ -82,13 +82,16 @@ async function og(url: string) {
       html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']${p}["']`, "i"));
     return m ? decode(m[1]) : null;
   };
-  return { title: meta("og:title")?.replace(/\s*[|\-–]\s*(Bon App[ée]tit|Smitten Kitchen|Half Baked Harvest).*$/i, ""), image: meta("og:image"), description: meta("og:description") ?? meta("description") };
+  return { title: meta("og:title")?.replace(/\s*[|\-–]\s*(Bon App[ée]tit|Smitten Kitchen|Half Baked Harvest|The Kitchn|Kitchn).*$/i, ""), image: meta("og:image"), description: meta("og:description") ?? meta("description") };
 }
 
-const months = (n: number) => Array.from({ length: n }, (_, i) => {
+// Monthly sitemaps (sitemap-YYYY-MM.xml), newest first. Bon Appétit and The Kitchn both publish them.
+const months = (n: number, site = "https://www.bonappetit.com") => Array.from({ length: n }, (_, i) => {
   const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - i);
-  return `https://www.bonappetit.com/sitemap-${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}.xml`;
+  return `${site}/sitemap-${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}.xml`;
 });
+// The Kitchn's recipe posts end in -recipe-<id>; reviews, roundups and shopping posts don't.
+const KITCHN_RECIPE = /-recipe-\d+\/?$/;
 const SK_SKIP = /\/(about|faq|contact|recipes|category|tag|page|book|press|cookbook|surprise-me)\//;
 
 const SOURCES: Source[] = [
@@ -115,7 +118,11 @@ const SOURCES: Source[] = [
   },
   {
     name: "The Kitchn",
-    collect: () => rss("https://www.thekitchn.com/main.rss", (item, u) => /-recipe-\d+/.test(u) || /<category>recipe<\/category>/i.test(item)),
+    // The RSS feed is only the 20 latest posts and mostly shopping/news, so most recipes come from the monthly sitemaps.
+    collect: async () => [
+      ...(await rss("https://www.thekitchn.com/main.rss", (_, u) => KITCHN_RECIPE.test(u))),
+      ...(await sitemap(months(12, "https://www.thekitchn.com"), (u) => KITCHN_RECIPE.test(u))),
+    ],
   },
 ];
 
@@ -153,7 +160,7 @@ Deno.serve(async (req) => {
     const picks = [...fresh, ...archive].slice(0, PER_SOURCE);
     let budget = OG_BUDGET, added = 0;
     await pool(picks, 6, async (c) => {
-      const needsOg = !c.image || (src.name === "Bon Appétit" && (!c.title || !c.description));
+      const needsOg = !c.image || ((src.name === "Bon Appétit" || src.name === "The Kitchn") && (!c.title || !c.description));
       if (needsOg && budget-- > 0) {
         const m = await og(c.url);
         c.image ??= m.image; c.title ??= m.title ?? undefined; c.description ??= clip(m.description);
