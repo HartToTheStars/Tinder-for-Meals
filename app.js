@@ -665,7 +665,7 @@ function renderKept() {
     const t = tagIcons(r, 4);
     return `
     <li class="swipe-row" data-id="${r.id}">
-      <span class="swipe-bg swipe-open" aria-hidden="true">${icon("external-link")}<b>Open</b></span>
+      <button class="swipe-bg swipe-open" type="button" tabindex="-1" aria-label="Share ${esc(r.title)}">${icon("share")}<b>Share</b></button>
       <span class="swipe-bg swipe-del" aria-hidden="true"><b>Remove</b>${icon("x")}</span>
       <div class="item${r.id === state.freshId ? " fresh" : ""}" data-id="${r.id}" style="animation-delay:${r.id === state.freshId ? 0 : Math.min(i, 12) * 20}ms">
       <img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" />
@@ -679,6 +679,7 @@ function renderKept() {
     </li>`;
   }).join("");
   state.freshId = null;
+  warmPreviews();
   maybeHintKeepSwipe();
   renderFeatured();
 
@@ -735,37 +736,40 @@ async function removeKeep(row) {
   updateAcct();
 }
 
-// Keeps rows: swipe left to remove, swipe right to open the recipe in a new tab. Vertical scrolling still works.
+// Keeps rows: swipe left to remove; swipe right to slide the row open onto a Share button (a real tap, which
+// iPhone Safari requires before it will show the share sheet). Tap anywhere else, or swipe back, to close it.
 (() => {
   const list = $("#list");
-  let drag = null, eatClick = false, pendingOpen = null;
-  // Open like a real link tap. iPhone Safari only allows a new tab from certain events: for touch we wait for
-  // touchend (which it accepts; pointerup it silently blocks), for mouse pointerup is fine.
-  const openTab = (url) => {
-    const a = document.createElement("a");
-    a.href = url; a.target = "_blank"; a.rel = "noopener";
-    document.body.append(a);
-    a.click();
-    a.remove();
-  };
+  const REVEAL = 104;
+  let drag = null, eatClick = false, revealed = null;
+  const parts = (row) => ({ row, item: row.querySelector(".item"), open: row.querySelector(".swipe-open"), del: row.querySelector(".swipe-del") });
   const threshold = (item) => Math.min(110, item.offsetWidth * 0.3);
-  const paint = (d, dx) => {
-    d.item.style.transform = `translateX(${dx}px)`;
-    d.open.style.opacity = dx > 0 ? Math.min(1, dx / 60) : 0;
-    d.del.style.opacity = dx < 0 ? Math.min(1, -dx / 60) : 0;
-    d.row.classList.toggle("armed", Math.abs(dx) > threshold(d.item));
+  const paint = (d, x) => {
+    d.item.style.transform = `translateX(${x}px)`;
+    d.open.style.opacity = x > 0 ? Math.min(1, x / 60) : 0;
+    d.del.style.opacity = x < 0 ? Math.min(1, -x / 60) : 0;
+    d.row.classList.toggle("armed", x < -threshold(d.item));
   };
-  const settle = (d) => {
+  const snap = (d, x) => {
     d.item.classList.add("snapping");
-    paint(d, 0);
-    d.row.classList.remove("armed");
+    paint(d, x);
     setTimeout(() => d.item.classList.remove("snapping"), 320);
   };
+  const close = () => {
+    if (!revealed) return;
+    const d = parts(revealed);
+    revealed.classList.remove("revealed");
+    revealed = null;
+    snap(d, 0);
+  };
+  const eat = () => { eatClick = true; setTimeout(() => { eatClick = false; }, 400); };
+
   list.addEventListener("pointerdown", (e) => {
+    if (e.button > 0 || e.target.closest(".swipe-open, .sh, .rm")) return;
     const item = e.target.closest(".swipe-row > .item");
-    if (!item || e.button > 0 || e.target.closest(".sh, .rm")) return;
-    const row = item.parentElement;
-    drag = { item, row, open: row.querySelector(".swipe-open"), del: row.querySelector(".swipe-del"), x: e.clientX, y: e.clientY, dx: 0, on: false, pid: e.pointerId };
+    if (!item) return;
+    const d = parts(item.parentElement);
+    drag = { ...d, base: revealed === d.row ? REVEAL : 0, x: e.clientX, y: e.clientY, dx: 0, on: false, pid: e.pointerId };
   });
   list.addEventListener("pointermove", (e) => {
     const d = drag;
@@ -775,47 +779,59 @@ async function removeKeep(row) {
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { drag = null; return; } // it's a scroll
       if (Math.abs(dx) < 10) return;
       d.on = true;
+      if (revealed && revealed !== d.row) close();
       d.item.classList.remove("snapping");
       try { d.item.setPointerCapture(e.pointerId); } catch { /* fine */ }
     }
     d.dx = dx;
-    paint(d, dx);
+    paint(d, d.base + dx);
   });
   const end = (e) => {
     const d = drag;
     drag = null;
-    if (!d || !d.on) return;
-    eatClick = true;
-    setTimeout(() => { eatClick = false; }, 400);
-    const th = threshold(d.item);
-    if (e.type === "pointerup" && d.dx < -th) {
+    if (!d) return;
+    if (!d.on) {
+      // A plain tap while a row is open just closes it (and doesn't follow the recipe link).
+      if (revealed && e.type === "pointerup") { eat(); close(); }
+      return;
+    }
+    eat();
+    const x = d.base + d.dx, th = threshold(d.item);
+    if (e.type === "pointerup" && x < -th) {
+      if (revealed === d.row) revealed = null;
+      d.row.classList.remove("revealed");
       d.item.classList.add("snapping");
       d.item.style.transform = "translateX(-110%)";
       d.del.style.opacity = 1;
       removeKeep(d.row);
       return;
     }
-    if (e.type === "pointerup" && d.dx > th) {
-      const r = state.kept.find((x) => x.id === d.row.dataset.id);
-      if (r && e.pointerType === "touch") {
-        pendingOpen = r.url;
-        setTimeout(() => { pendingOpen = null; }, 600);
-      } else if (r) openTab(r.url);
+    if (e.type === "pointerup" && x > REVEAL / 2) {
+      revealed = d.row;
+      d.row.classList.add("revealed");
+      warmPreviews();
+      snap(d, REVEAL);
+      return;
     }
-    settle(d);
+    if (revealed === d.row) { revealed = null; d.row.classList.remove("revealed"); }
+    snap(d, 0);
   };
-  list.addEventListener("touchend", () => {
-    if (!pendingOpen) return;
-    const url = pendingOpen;
-    pendingOpen = null;
-    openTab(url);
-  });
   list.addEventListener("pointerup", end);
   list.addEventListener("pointercancel", end);
+  list.addEventListener("click", (e) => {
+    const share = e.target.closest(".swipe-open");
+    if (share) {
+      const row = share.closest(".swipe-row");
+      shareRecipe(state.kept.find((r) => r.id === row.dataset.id));
+      close();
+      return;
+    }
+    if (eatClick) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
   // Links and images would start a native drag and steal the gesture.
   list.addEventListener("dragstart", (e) => { if (e.target.closest(".swipe-row")) e.preventDefault(); });
-  // A swipe is not a tap: don't follow the recipe link after one.
-  list.addEventListener("click", (e) => { if (eatClick) { e.preventDefault(); e.stopPropagation(); } }, true);
+  // Tapping outside the list closes an open row.
+  document.addEventListener("pointerdown", (e) => { if (revealed && !list.contains(e.target)) close(); });
 })();
 
 // First time on Keeps with something kept: the top row peeks right (Open) then left (Remove), once.
@@ -1305,15 +1321,15 @@ $("#peopleClose").addEventListener("click", () => closeSheet("#people"));
 
 // Share a keep: the link opens a landing page that shows the recipe and invites them to swipe.
 // Recipes with a pre-rendered preview get a /s/<id>/ link (rich preview in iMessage, Slack, etc.).
-let ogIds = null;
-async function hasPreview(id) {
-  if (!ogIds) ogIds = fetch("/og/index.json").then((r) => (r.ok ? r.json() : [])).then((a) => new Set(a)).catch(() => new Set());
-  return (await ogIds).has(id);
-}
+let ogIds = null, ogSet = null;
+const warmPreviews = () => (ogIds ??= fetch("/og/index.json").then((r) => (r.ok ? r.json() : [])).then((a) => (ogSet = new Set(a))).catch(() => (ogSet = new Set())));
+async function hasPreview(id) { return (await warmPreviews()).has(id); }
 async function shareRecipe(r) {
   if (!r) return;
+  // Only wait if the preview list hasn't loaded yet; otherwise the share sheet opens straight from the tap.
+  if (!ogSet) await warmPreviews();
   const by = state.me?.share_code ? encodeURIComponent(state.me.share_code) : "";
-  const url = (await hasPreview(r.id))
+  const url = ogSet.has(r.id)
     ? `${location.origin}/s/${r.id}/${by ? `?by=${by}` : ""}`
     : `${location.origin}/?r=${r.id}${by ? `&by=${by}` : ""}`;
   const text = `${r.title}. Found it on forks.`;
