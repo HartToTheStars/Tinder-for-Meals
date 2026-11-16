@@ -745,3 +745,8 @@ a.src-row:hover { background: var(--bg); }
 .tg-acts { padding: 18px 0 4px; }
 .tg-again { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 8px 12px; font: 600 13px Inter, system-ui, sans-serif; color: var(--muted); }
 .tg-again svg { width: 15px; height: 15px; }
+
+.tg-status { min-height: 40px; display: grid; place-items: center; margin-top: 6px; }
+.tg-status .tg-again { margin-top: 0; }
+.tg-in { display: inline-flex; align-items: center; gap: 6px; margin: 0 !important; font-size: 13.5px !important; font-weight: 600; color: var(--basil) !important; animation: pop .4s cubic-bezier(.3,1.6,.5,1); }
+.tg-in svg { width: 16px; height: 16px; stroke-width: 2.6; }

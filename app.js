@@ -1614,6 +1614,11 @@ const tgName = () => state.me?.name || ls.get(TG_NAME, "");
 const tgLink = () => `${location.origin}/?with=${tg.code}`;
 const tgBody = (html) => { $("#tgBody").innerHTML = html; };
 const tgOthers = () => (tg.data?.people || []).filter((p) => !p.me);
+// "Kelly's", but "James'".
+const poss = (n) => (/s$/i.test(n) ? `${n}'` : `${n}'s`);
+const tgKeptCount = () => Object.values(tg.data?.mine || {}).filter(Boolean).length;
+// Signed in with a name: never ask for it.
+const tgKnownName = () => (state.user && state.me?.name) || "";
 const tgMine = () => Object.keys(tg.data?.mine || {}).length;
 
 $("#withIc").innerHTML = icon("users");
@@ -1631,20 +1636,20 @@ function closeTogether() { clearInterval(tg.poll); tg.poll = null; closeSheet("#
 // Start screen (host) or invite screen (someone who opened the link).
 function tgIntro() {
   const guest = !!tg.data && !tg.data.is_host;
-  const name = tgName();
+  const name = tgName(), known = tgKnownName();
   tgBody(`
     <div class="tg-icon">${icon("users")}</div>
     <h3 id="tgTitle">${guest ? `${esc(tg.data.host_name)} wants to pick dinner with you` : "Swipe with someone"}</h3>
     <p class="tg-lead">${guest ? "Swipe 12 dinners. We'll show you the ones you both want." : "You both swipe the same 12 dinners. We'll show you the ones you both want."}</p>
     <form class="tg-form" id="tgForm" novalidate>
-      <input class="tg-name" id="tgName" type="text" autocomplete="given-name" maxlength="24" placeholder="Your first name" value="${esc(name)}" ${name ? "" : "autofocus"} aria-label="Your first name" />
+      ${known ? "" : `<input class="tg-name" id="tgName" type="text" autocomplete="given-name" maxlength="24" placeholder="Your first name" value="${esc(name)}" ${name ? "" : "autofocus"} aria-label="Your first name" />`}
       <button class="btn tg-go" type="submit">${guest ? "Start swiping" : "Start a round"}</button>
     </form>`);
   $("#tgForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const n = $("#tgName").value.trim();
+    const n = known || $("#tgName").value.trim();
     if (!n) { $("#tgName").focus(); return toast("Add your first name so they know it's you"); }
-    if (!state.me?.name) ls.set(TG_NAME, n);
+    if (!known) ls.set(TG_NAME, n);
     if (guest) return tgSwipe();
     const btn = e.submitter || $(".tg-go");
     btn.disabled = true; btn.textContent = "Setting the table…";
@@ -1719,11 +1724,31 @@ function tgNext() {
       <button class="act act-nope" id="tgNope" aria-label="Nope" title="Nope (←)">${icon("x")}</button>
       <button class="act act-like" id="tgLike" aria-label="Keep" title="Keep (→)">${icon("heart")}</button>
     </div>
-    <button class="tg-again" id="tgInvite" type="button">${icon("user-plus")}Invite someone</button>`);
-  $("#tgInvite").addEventListener("click", tgShareLink);
+    <div class="tg-status" id="tgStatus"></div>`);
+  tgStatus();
+  tg.poll = setInterval(async () => {
+    if ($("#together").hidden || !$("#tgDeck")) { clearInterval(tg.poll); tg.poll = null; return; }
+    const d2 = await tgFetch();
+    if (!d2 || !$("#tgDeck")) return;
+    // Keep my own swipes from this device (they may be newer than the server's copy).
+    tg.data = { ...d2, mine: { ...d2.mine, ...tg.data.mine } };
+    tgStatus();
+  }, 5000);
   $("#tgNope").addEventListener("click", (e) => tgThrow(false, e));
   $("#tgLike").addEventListener("click", (e) => tgThrow(true, e));
   tgRender();
+}
+function tgStatus() {
+  const box = $("#tgStatus"); if (!box) return;
+  const d = tg.data;
+  const done = tgOthers().filter((p) => p.n >= d.total).map((p) => p.name);
+  if (done.length) {
+    const names = done.length === 1 ? poss(done[0]) : `${done.slice(0, -1).map(poss).join(", ")} and ${poss(done.at(-1))}`;
+    box.innerHTML = `<p class="tg-in">${icon("check")}${esc(names)} picks are in.</p>`;
+  } else {
+    box.innerHTML = `<button class="tg-again" id="tgInvite" type="button">${icon("user-plus")}Invite someone</button>`;
+    $("#tgInvite").addEventListener("click", tgShareLink);
+  }
 }
 const tgDeckEl = () => $("#tgDeck");
 const tgTop = () => [...(tgDeckEl()?.querySelectorAll(".card:not(.gone)") || [])].pop();
@@ -1857,7 +1882,7 @@ async function tgDone() {
     <div class="share-link tg-link"><span class="sl-text"><b>Your round</b><small>${esc(tgLink().replace(/^https?:\/\//, ""))}</small></span>
       <button class="sl-ic ghost" id="tgCopy" type="button" aria-label="Copy link">${icon("copy")}</button>
       <button class="sl-ic" id="tgShare" type="button" aria-label="Share link">${icon("share")}</button></div>
-    <p class="tg-foot">Your keeps from this round are saved to Keeps.</p>`);
+    ${state.user ? `<p class="tg-foot">Your keeps from this round are saved to your account.</p>` : `<p class="tg-foot">Your keeps from this round are in Keeps on this device.</p>`}`);
   $("#tgShare").addEventListener("click", tgShareLink);
   $("#tgCopy").addEventListener("click", tgCopyLink);
   clearInterval(tg.poll);
@@ -1872,6 +1897,15 @@ async function tgDone() {
   }, 4000);
 }
 
+// Every right swipe in a round is a keep. Signed in: already on your account. Guest: on this device until they sign up.
+function tgSaveBlock() {
+  const k = tgKeptCount();
+  if (!k) return "";
+  const what = `${k === 1 ? "your keep" : `all ${k} of your keeps`}`;
+  return state.user
+    ? `<p class="tg-foot">${k === 1 ? "Your keep is" : `All ${k} of your keeps are`} saved to your account.</p>`
+    : `<button class="btn tg-go" id="tgSave" type="button">Save ${what} to an account</button>`;
+}
 function tgReveal() {
   const d = tg.data;
   const finished = (d.people || []).filter((p) => !p.me && p.n >= d.total).map((p) => p.name);
@@ -1884,14 +1918,15 @@ function tgReveal() {
       <div class="tg-icon">${icon("frown")}</div>
       <h3 id="tgTitle">No overlap this time</h3>
       <p class="tg-lead">${who} didn't keep any of the same dinners. Another round?</p>
-      <button class="btn tg-go" id="tgAgain" type="button">Start another round</button>`);
+      ${tgSaveBlock()}
+      <button class="${state.user || !tgKeptCount() ? "btn tg-go" : "break-stop"}" id="tgAgain" type="button">Start another round</button>`);
   } else {
     tgBody(`
       <p class="tg-kicker">It's a match</p>
       <h3 id="tgTitle">${who} ${finished.length > 1 ? "all" : "both"} want${matches.length === 1 ? " this" : ` these ${matches.length}`}</h3>
       <ul class="tg-matches">${matches.map((r) => `
         <li><a href="${esc(r.url)}" target="_blank" rel="noopener"><img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" /><span><b>${esc(r.title)}</b><small>${esc(r.source)}</small></span>${icon("arrow-up-right")}</a></li>`).join("")}</ul>
-      ${state.user ? `<p class="tg-foot">Saved to your keeps.</p>` : `<button class="btn tg-go" id="tgSave" type="button">Save them to an account</button>`}
+      ${tgSaveBlock()}
       <button class="break-stop" id="tgAgain" type="button">Start another round</button>`);
     const box = $(".tg-sheet").getBoundingClientRect();
     setTimeout(() => confetti(box.left + box.width / 2, box.top + 80, 160, { power: 1.15 }), 120);
