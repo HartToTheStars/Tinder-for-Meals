@@ -1929,7 +1929,7 @@ function tgReveal() {
       ${tgSaveBlock()}
       <button class="break-stop" id="tgAgain" type="button">Start another round</button>`);
     const box = $(".tg-sheet").getBoundingClientRect();
-    setTimeout(() => confetti(box.left + box.width / 2, box.top + 80, 160, { power: 1.15 }), 120);
+    setTimeout(() => confetti(box.left + box.width / 2, box.top + 70, 60, { power: 0.7, size: 0.85 }), 120);
   }
   $("#tgAgain")?.addEventListener("click", () => { tg.code = null; tg.data = null; tgIntro(); });
   $("#tgSave")?.addEventListener("click", () => { closeSheet("#together", () => openSave("manual")); });
