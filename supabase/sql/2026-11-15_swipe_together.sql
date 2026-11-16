@@ -21,3 +21,7 @@
 -- no policies. meals_together_timer(p_code, p_participant) starts or restarts a person's timer
 -- (deadline = now + 62s, 2s grace) and respects the 8-person cap. meals_together_get adds
 -- 'waiting' = others whose timer is running and who haven't finished their 12.
+
+-- Applied as migration meals_together_end (2026-11-16):
+-- meals_together.ended_at; meals_together_end(p_code, p_participant) lets the host end a round.
+-- Ended rounds refuse votes and timers; meals_together_get adds 'ended' and reports waiting = 0.

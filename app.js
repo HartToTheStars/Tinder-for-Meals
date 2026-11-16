@@ -1705,6 +1705,11 @@ async function tgSync() {
     // Keep my own swipes from this device (they may be newer than the server's copy).
     tg.data = { ...d2, mine: { ...d2.mine, ...(tg.data?.mine || {}) } };
     const open = !$("#together").hidden;
+    if (d2.ended && !$("#tgRevealed")) {
+      if (open && !d2.is_host) return tgEnded();
+      if (!open) tgReset();
+      return;
+    }
     if (open && $("#tgDeck")) return tgStatus();
     if (open && $("#tgWaiting")) return d2.done >= 2 ? tgReveal() : tgDone({ skipFetch: true });
     if (open && $("#tgRevealed")) return tgReveal();
@@ -1743,12 +1748,63 @@ async function openTogether(code, { fresh = false, resume = false } = {}) {
     return toast("That round has ended. Start your own!");
   }
   tg.data = data;
+  if (data.ended) {
+    if (data.is_host) { tgReset(); return tgIntro(); }
+    return tgEnded();
+  }
   if (data.full) return tgFull();
   tgSubscribe(code);
   ls.set(TG_ACTIVE, code);
   if (!data.is_host && !tgMine()) return tgIntro();
   if (data.is_host && fresh) return tgInvite();
   tgNext();
+}
+
+// End the round (host) or leave it (anyone else), then start fresh. Tap once to arm, again to confirm.
+function tgEndHTML() {
+  return `<button class="tg-end" id="tgEnd" type="button">${tg.data?.is_host ? "End round and start over" : "Leave and start my own"}</button>`;
+}
+function tgBindEnd() {
+  const b = $("#tgEnd"); if (!b) return;
+  const label = b.textContent;
+  b.addEventListener("click", async () => {
+    if (!b.classList.contains("armed")) {
+      b.classList.add("armed");
+      b.textContent = tg.data?.is_host ? "Tap again to end the round for everyone" : "Tap again to leave this round";
+      clearTimeout(b._t);
+      b._t = setTimeout(() => { b.classList.remove("armed"); b.textContent = label; }, 4000);
+      return;
+    }
+    const host = tg.data?.is_host, code = tg.code;
+    if (host) {
+      const { error } = await db.rpc("meals_together_end", { p_code: code, p_participant: tg.pid });
+      if (error) return toast("Couldn't end the round. Try again?");
+      tgPing(); // everyone else sees it ended right away
+    }
+    tgReset();
+    tgIntro();
+    toast(host ? "Round ended" : "You left the round");
+  });
+}
+// Forget the current round on this device and stop watching it.
+function tgReset() {
+  if (tg.code && ls.get(TG_ACTIVE, null) === tg.code) ls.del(TG_ACTIVE);
+  clearInterval(tg.poll); tg.poll = null;
+  clearTimeout(tgIdleT);
+  tgStopTimer(); tg.paused = false;
+  tgUnsubscribe();
+  tg.code = null; tg.data = null;
+}
+// The host ended the round you're in.
+function tgEnded() {
+  const host = tg.data?.host_name || "The host";
+  tgReset();
+  tgBody(`
+    <div class="tg-icon">${icon("users")}</div>
+    <h3 id="tgTitle">${esc(host)} ended this round</h3>
+    <p class="tg-lead">Your picks so far are saved in Keeps. Start your own and send the link.</p>
+    <button class="btn tg-go" id="tgOwn" type="button">Start your own round</button>`);
+  $("#tgOwn").addEventListener("click", () => tgIntro());
 }
 
 // Someone opened a round that already has 8 people in it.
@@ -1806,7 +1862,9 @@ function tgNext() {
       <button class="act act-nope" id="tgNope" aria-label="Nope" title="Nope (←)">${icon("x")}</button>
       <button class="act act-like" id="tgLike" aria-label="Keep" title="Keep (→)">${icon("heart")}</button>
     </div>
-    <div class="tg-status" id="tgStatus"></div>`);
+    <div class="tg-status" id="tgStatus"></div>
+    ${tgEndHTML()}`);
+  tgBindEnd();
   tgStatus();
   tg.poll = setInterval(tgSync, 5000);
   $("#tgNope").addEventListener("click", (e) => tgThrow(false, e));
@@ -1996,9 +2054,10 @@ async function tgVote(r, liked) {
     // Put it back so it can be swiped again.
     const mine = { ...tg.data.mine }; delete mine[r.id]; tg.data.mine = mine;
     // First swipe refused: the round may have filled up while you were on the start screen.
-    if (!error && !tgMine()) {
+    if (!error) {
       const d2 = await tgFetch();
-      if (d2?.full) { tg.data = d2; return tgFull(); }
+      if (d2?.ended && !d2.is_host) { tg.data = d2; return tgEnded(); }
+      if (d2?.full && !tgMine()) { tg.data = d2; return tgFull(); }
     }
     toast("Couldn't save that one. Try again?");
     if (tgDeckEl()) tgRender(); else tgNext();
@@ -2037,6 +2096,8 @@ async function tgDone({ skipFetch = false } = {}) {
     ${state.user ? `<p class="tg-foot">Your picks from this round are saved to your account under Keeps.</p>` : `<p class="tg-foot">Your picks from this round are saved in Keeps on this device.</p>`}`);
   $("#tgShare").addEventListener("click", tgShareLink);
   $("#tgCopy").addEventListener("click", tgCopyLink);
+  $("#tgBody").insertAdjacentHTML("beforeend", tgEndHTML());
+  tgBindEnd();
   clearInterval(tg.poll);
   tg.poll = setInterval(tgSync, 4000);
 }
