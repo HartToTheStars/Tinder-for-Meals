@@ -1631,7 +1631,7 @@ $("#withBtn").addEventListener("click", () => {
 });
 $("#tgClose").addEventListener("click", closeTogether);
 $("#together").addEventListener("click", (e) => { if (e.target.id === "together") closeTogether(); });
-function closeTogether() { clearInterval(tg.poll); tg.poll = null; closeSheet("#together"); }
+function closeTogether() { clearInterval(tg.poll); tg.poll = null; tgStopTimer(); tg.paused = false; closeSheet("#together"); }
 
 // Start screen (host) or invite screen (someone who opened the link).
 function tgIntro() {
@@ -1690,6 +1690,7 @@ async function tgSync() {
     const open = !$("#together").hidden;
     if (open && $("#tgDeck")) return tgStatus();
     if (open && $("#tgWaiting")) return d2.done >= 2 ? tgReveal() : tgDone({ skipFetch: true });
+    if (open && $("#tgRevealed")) return tgReveal();
     if (!open && tgMine() >= d2.total && d2.done >= 2 && ls.get(TG_ACTIVE, null) === tg.code) {
       openSheet("#together");
       tgReveal();
@@ -1778,7 +1779,7 @@ function tgNext() {
   clearInterval(tg.poll); tg.poll = null;
   if (!tgQueue().length) return tgDone();
   tgBody(`
-    <div class="tg-top"><b id="tgTitle"></b></div>
+    <div class="tg-top"><b id="tgTitle"></b><span class="tg-timer" id="tgTimer" aria-live="off">1:00</span></div>
     <div class="tg-bar"><i></i></div>
     <div class="deck tg-deck" id="tgDeck"></div>
     <div class="tg-acts">
@@ -1791,6 +1792,47 @@ function tgNext() {
   $("#tgNope").addEventListener("click", (e) => tgThrow(false, e));
   $("#tgLike").addEventListener("click", (e) => tgThrow(true, e));
   tgRender();
+  if (tg.timerEnd > Date.now()) tgTick(); else tgStartTimer();
+}
+
+// 60 seconds to swipe your 12. When it runs out: "Want more time?" and another 60. The server keeps the
+// deadline too, so everyone else can see how many people are still on the clock.
+const TG_SECONDS = 60;
+async function tgStartTimer() {
+  tg.paused = false;
+  $("#tgTimeUp")?.remove();
+  tg.timerEnd = Date.now() + TG_SECONDS * 1000;
+  clearInterval(tg.tick);
+  tg.tick = setInterval(tgTick, 250);
+  tgTick();
+  const { data: ok } = await db.rpc("meals_together_timer", { p_code: tg.code, p_participant: tg.pid });
+  if (ok) tgPing();
+}
+function tgStopTimer() { clearInterval(tg.tick); tg.tick = null; tg.timerEnd = 0; }
+function tgTick() {
+  const el = $("#tgTimer");
+  if (!el) return tgStopTimer();
+  if (!tg.tick) { tg.tick = setInterval(tgTick, 250); }
+  const left = Math.max(0, Math.ceil((tg.timerEnd - Date.now()) / 1000));
+  el.textContent = `0:${String(left).padStart(2, "0")}`.replace(/^0:60$/, "1:00");
+  el.classList.toggle("low", left <= 10);
+  if (left <= 0 && !tg.paused) tgTimeUp();
+}
+function tgTimeUp() {
+  tg.paused = true;
+  clearInterval(tg.tick); tg.tick = null;
+  buzz([20, 60, 20]);
+  const deck = tgDeckEl(); if (!deck) return;
+  deck.insertAdjacentHTML("beforeend", `
+    <div class="tg-timeup" id="tgTimeUp" role="alertdialog" aria-labelledby="tgTimeUpTitle">
+      <div class="tg-icon">${icon("timer")}</div>
+      <b id="tgTimeUpTitle">Time's up</b>
+      <p>Want more time?</p>
+      <button class="btn tg-go" id="tgMore" type="button">60 more seconds</button>
+      <button class="break-stop" id="tgNoMore" type="button">No thanks</button>
+    </div>`);
+  $("#tgMore").addEventListener("click", tgStartTimer);
+  $("#tgNoMore").addEventListener("click", closeTogether);
 }
 function tgStatus() {
   const box = $("#tgStatus"); if (!box) return;
@@ -1852,7 +1894,7 @@ function tgDrag(el) {
   let sx = 0, sy = 0, dx = 0, dy = 0, down = false;
   const like = el.querySelector(".stamp-like"), nope = el.querySelector(".stamp-nope");
   el.addEventListener("pointerdown", (e) => {
-    if (el !== tgTop() || tg.busy) return;
+    if (el !== tgTop() || tg.busy || tg.paused) return;
     down = true; sx = e.clientX; sy = e.clientY; dx = dy = 0;
     el.setPointerCapture(e.pointerId);
     el.classList.add("dragging");
@@ -1881,7 +1923,7 @@ function tgDrag(el) {
 function tgThrow(liked, evt) {
   const el = tgTop();
   const r = tgQueue()[0];
-  if (!el || !r || tg.busy) return;
+  if (!el || !r || tg.busy || tg.paused) return;
   el.classList.add("gone", "holding");
   const stamp = el.querySelector(liked ? ".stamp-like" : ".stamp-nope");
   const s = liked ? 1 : -1;
@@ -1925,6 +1967,7 @@ async function tgVote(r, liked) {
 }
 
 async function tgDone({ skipFetch = false } = {}) {
+  tgStopTimer();
   await tg.pending;
   if (tgQueue().length) return tgNext(); // a vote failed and went back in the stack
   if (!skipFetch) {
@@ -1933,13 +1976,12 @@ async function tgDone({ skipFetch = false } = {}) {
   }
   const d = tg.data;
   if (d.done >= 2) return tgReveal();
-  const others = tgOthers();
-  const waitingOn = others.length ? others.map((p) => esc(p.name)).join(" and ") : null;
   tgBody(`
     <div class="tg-icon tg-pulse" id="tgWaiting">${icon("users")}</div>
     <h3 id="tgTitle">Your 12 are in</h3>
-    <p class="tg-lead">${waitingOn
-      ? `Waiting on ${waitingOn} (${others.map((p) => `${p.n} of ${d.total}`).join(", ")}). Your matches show up here when they finish.`
+    ${tgWaitingLine()}
+    <p class="tg-lead">${Number(d.waiting)
+      ? "Your matches show up here when they finish."
       : "Now send the link. Your matches show up here as soon as someone finishes their swipes."}</p>
     <div class="share-link tg-link"><span class="sl-text"><b>Your round</b><small>${esc(tgLink().replace(/^https?:\/\//, ""))}</small></span>
       <button class="sl-ic ghost" id="tgCopy" type="button" aria-label="Copy link">${icon("copy")}</button>
@@ -1949,6 +1991,12 @@ async function tgDone({ skipFetch = false } = {}) {
   $("#tgCopy").addEventListener("click", tgCopyLink);
   clearInterval(tg.poll);
   tg.poll = setInterval(tgSync, 4000);
+}
+
+// Others still on the clock (timer running, not finished).
+function tgWaitingLine() {
+  const w = Number(tg.data?.waiting) || 0;
+  return w ? `<p class="tg-waiting"><i></i>Waiting on ${w} ${w === 1 ? "person" : "people"}</p>` : "";
 }
 
 // Every right swipe in a round is a keep. Signed in: already on your account. Guest: on this device until they sign up.
@@ -1967,27 +2015,31 @@ function tgReveal() {
   const byId = new Map((d.recipes || []).map((r) => [r.id, clean(r)]));
   const matches = (d.matches || []).map((id) => byId.get(id)).filter(Boolean);
   if (ls.get(TG_ACTIVE, null) === tg.code) ls.del(TG_ACTIVE);
-  clearInterval(tg.poll); tg.poll = null;
-  tgUnsubscribe();
+  // Someone still swiping: keep checking, the matches can still change.
+  clearInterval(tg.poll); tg.poll = Number(d.waiting) ? setInterval(tgSync, 5000) : null;
+  const first = tg.revealed !== tg.code;
+  tg.revealed = tg.code;
   if (!matches.length) {
     tgBody(`
-      <div class="tg-icon">${icon("frown")}</div>
+      <div class="tg-icon" id="tgRevealed">${icon("frown")}</div>
       <h3 id="tgTitle">No overlap this time</h3>
+      ${tgWaitingLine()}
       <p class="tg-lead">${who} didn't keep any of the same dinners. Another round?</p>
       ${tgSaveBlock()}
       <button class="${state.user || !tgKeptCount() ? "btn tg-go" : "break-stop"}" id="tgAgain" type="button">Start another round</button>`);
   } else {
     tgBody(`
-      <p class="tg-kicker">It's a match</p>
+      <p class="tg-kicker" id="tgRevealed">It's a match</p>
       <h3 id="tgTitle">${who} ${finished.length > 1 ? "all" : "both"} want${matches.length === 1 ? " this" : ` these ${matches.length}`}</h3>
+      ${tgWaitingLine()}
       <ul class="tg-matches">${matches.map((r) => `
         <li><a href="${esc(r.url)}" target="_blank" rel="noopener"><img src="${esc(r.image)}" alt="" referrerpolicy="no-referrer" /><span><b>${esc(r.title)}</b><small>${esc(r.source)}</small></span>${icon("arrow-up-right")}</a></li>`).join("")}</ul>
       ${tgSaveBlock()}
       <button class="break-stop" id="tgAgain" type="button">Start another round</button>`);
     const box = $(".tg-sheet").getBoundingClientRect();
-    setTimeout(() => confetti(box.left + box.width / 2, box.top + 70, 60, { power: 0.7, size: 0.85 }), 120);
+    if (first) setTimeout(() => confetti(box.left + box.width / 2, box.top + 70, 60, { power: 0.7, size: 0.85 }), 120);
   }
-  $("#tgAgain")?.addEventListener("click", () => { tg.code = null; tg.data = null; tgIntro(); });
+  $("#tgAgain")?.addEventListener("click", () => { tgUnsubscribe(); tg.code = null; tg.data = null; tgIntro(); });
   $("#tgSave")?.addEventListener("click", () => { closeSheet("#together", () => openSave("manual")); });
 }
 

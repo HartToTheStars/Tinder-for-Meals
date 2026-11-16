@@ -15,3 +15,9 @@
 -- meals_together_vote refuses a newcomer once 7 non-host people have swiped.
 -- meals_together_get adds 'full': true for a newcomer when the round is at capacity, so the
 -- app shows "This round is full" before they start swiping.
+
+-- Applied as migration meals_together_timers (2026-11-16):
+-- 60-second swipe timers. Table meals_together_timers(together_id, participant, deadline), RLS on,
+-- no policies. meals_together_timer(p_code, p_participant) starts or restarts a person's timer
+-- (deadline = now + 62s, 2s grace) and respects the 8-person cap. meals_together_get adds
+-- 'waiting' = others whose timer is running and who haven't finished their 12.
