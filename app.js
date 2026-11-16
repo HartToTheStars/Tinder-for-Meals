@@ -1639,8 +1639,8 @@ function tgIntro() {
   const name = tgName(), known = tgKnownName();
   tgBody(`
     <div class="tg-icon">${icon("users")}</div>
-    <h3 id="tgTitle">${guest ? `${esc(tg.data.host_name)} wants to pick dinner with you` : "Swipe with someone"}</h3>
-    <p class="tg-lead">${guest ? "Swipe 12 dinners. We'll show you the ones you both want." : "You both swipe the same 12 dinners. We'll show you the ones you both want."}</p>
+    <h3 id="tgTitle">${guest ? `${esc(tg.data.host_name)} wants to pick a recipe with you` : "Swipe with someone"}</h3>
+    <p class="tg-lead">You all swipe the same 12 recipes. We'll show you the ones you all want.</p>
     <form class="tg-form" id="tgForm" novalidate>
       ${known ? "" : `<input class="tg-name" id="tgName" type="text" autocomplete="given-name" maxlength="24" placeholder="Your first name" value="${esc(name)}" ${name ? "" : "autofocus"} aria-label="Your first name" />`}
       <button class="btn tg-go" type="submit">${guest ? "Start swiping" : "Start a round"}</button>
@@ -1761,8 +1761,8 @@ function tgInvite() {
   $("#tgStart").addEventListener("click", tgSwipe);
 }
 async function tgShareLink() {
-  const text = `Help me pick dinner? Swipe 12 on forks and we'll see which ones we both want.`;
-  try { if (navigator.share) { await navigator.share({ title: "Swipe dinner with me", text, url: tgLink() }); return; } }
+  const text = `Help me pick a recipe? Swipe 12 on forks and we'll see which ones we both want.`;
+  try { if (navigator.share) { await navigator.share({ title: "Help me pick a recipe", text, url: tgLink() }); return; } }
   catch (err) { if (err?.name === "AbortError") return; }
   tgCopyLink();
 }
@@ -2009,7 +2009,7 @@ async function tgDone({ skipFetch = false } = {}) {
   if (d.done >= 2) return tgReveal();
   tgBody(`
     <div class="tg-icon tg-pulse" id="tgWaiting">${icon("users")}</div>
-    <h3 id="tgTitle">Your 12 are in</h3>
+    <h3 id="tgTitle">Your 12 picks are in</h3>
     ${tgWaitingLine()}
     <p class="tg-lead">${Number(d.waiting)
       ? "Your matches show up here when they finish."
@@ -2017,7 +2017,7 @@ async function tgDone({ skipFetch = false } = {}) {
     <div class="share-link tg-link"><span class="sl-text"><b>Your round</b><small>${esc(tgLink().replace(/^https?:\/\//, ""))}</small></span>
       <button class="sl-ic ghost" id="tgCopy" type="button" aria-label="Copy link">${icon("copy")}</button>
       <button class="sl-ic" id="tgShare" type="button" aria-label="Share link">${icon("share")}</button></div>
-    ${state.user ? `<p class="tg-foot">Your keeps from this round are saved to your account.</p>` : `<p class="tg-foot">Your keeps from this round are in Keeps on this device.</p>`}`);
+    ${state.user ? `<p class="tg-foot">Your picks from this round are saved to your account under Keeps.</p>` : `<p class="tg-foot">Your picks from this round are saved in Keeps on this device.</p>`}`);
   $("#tgShare").addEventListener("click", tgShareLink);
   $("#tgCopy").addEventListener("click", tgCopyLink);
   clearInterval(tg.poll);
