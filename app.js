@@ -1689,7 +1689,7 @@ function tgInvite() {
   tgBody(`
     <div class="tg-icon">${icon("share")}</div>
     <h3 id="tgTitle">Send the link</h3>
-    <p class="tg-lead">Whoever opens it swipes the same 12. No account needed.</p>
+    <p class="tg-lead">Whoever opens it swipes the same 12 recipes.<br>No account required.</p>
     <div class="share-link tg-link"><span class="sl-text"><b>Your round</b><small>${esc(tgLink().replace(/^https?:\/\//, ""))}</small></span>
       <button class="sl-ic ghost" id="tgCopy" type="button" aria-label="Copy link">${icon("copy")}</button>
       <button class="sl-ic" id="tgShare" type="button" aria-label="Share link">${icon("share")}</button></div>
