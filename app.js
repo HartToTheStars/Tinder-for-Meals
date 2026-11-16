@@ -218,7 +218,7 @@ const saveSet = (k, set) => ls.set(k, [...set]);
 async function fetchDeck() {
   const exclude = new Set([...state.deck.map((r) => r.id), ...state.history.map((h) => h.recipe.id)]);
   const { data, error } = await db.rpc("meals_deck", { n: 20, cat: state.cat || null, want: [...state.want], ...guestIds() });
-  if (error) { console.error(error); return []; }
+  if (error) { console.error(error); return null; } // null = couldn't load (not "no recipes left")
   const recipes = data.filter((r) => !exclude.has(r.id) && !JUNK.test(r.title)).map(clean);
   await attachKeptBy(recipes);
   return recipes;
@@ -251,8 +251,22 @@ async function refill() {
   state.busy = true;
   const key = () => state.cat + "|" + [...state.want].sort() + "|" + (state.user?.id ?? "guest");
   const k = key();
-  const more = await fetchDeck();
+  let more = await fetchDeck();
   if (k !== key()) { state.busy = false; return refill(); } // filters or account changed mid-flight
+  // A failed load is not an empty deck: retry a couple of times, then say so with a Try again button.
+  if (more === null) {
+    state.loadFails = (state.loadFails || 0) + 1;
+    if (state.loadFails <= 2) {
+      await sleep(state.loadFails * 1500);
+      try { await db.auth.refreshSession(); } catch { /* signed out or offline */ }
+      state.busy = false;
+      return refill();
+    }
+    state.loadError = true;
+    state.busy = false;
+    return render();
+  }
+  state.loadFails = 0; state.loadError = false;
   state.dry = more.length === 0;
   state.deck.unshift(...more); // new cards go underneath
   more.slice(-4).forEach((r) => preload(r.image));
@@ -335,6 +349,8 @@ function render() {
     const want = [...state.want];
     deckMsg.innerHTML = state.busy
       ? `<div class="spinner"></div><p>Setting the table…</p>`
+      : state.loadError
+        ? `<div class="big">${icon("chef-hat")}</div><h3>Couldn't reach the kitchen</h3><p>Check your connection and try again.</p><button class="btn" id="btnRetry">Try again</button>`
       : want.length
         ? `<div class="big">${want.map((t) => icon(TAG[t].i)).join("")}</div><h3>Nothing left that fits your filters.</h3><div class="row"><button class="btn" id="btnClearTags">Clear filters</button><button class="btn btn-ghost" id="btnHarvest">Find fresh recipes</button></div>`
       : state.cat
@@ -342,12 +358,13 @@ function render() {
         : `<div class="big">${icon("chef-hat")}</div><h3>You've seen it all</h3><p>Want me to check the kitchens for new recipes?</p><button class="btn" id="btnHarvest">Find fresh recipes</button>`;
     deckMsg.hidden = false;
     $("#btnHarvest")?.addEventListener("click", harvest);
+    $("#btnRetry")?.addEventListener("click", () => { state.loadError = false; state.loadFails = 0; state.dry = false; refill(); render(); });
     $("#btnAll")?.addEventListener("click", () => setCat(""));
     $("#btnClearTags")?.addEventListener("click", () => { state.want.clear(); onWantChange(); });
   } else deckMsg.hidden = true; // each card shows its own "Setting the table" until its photo fades in
 
   if (top && !top.classList.contains("loading")) maybeTeach(top);
-  if (state.deck.length < 5 && !state.dry && !state.busy) refill();
+  if (state.deck.length < 5 && !state.dry && !state.busy && !state.loadError) refill();
 }
 
 // Depth in the stack drives the fan (0 = top); the side was fixed when the card was made.
