@@ -1631,7 +1631,7 @@ $("#withBtn").addEventListener("click", () => {
 });
 $("#tgClose").addEventListener("click", closeTogether);
 $("#together").addEventListener("click", (e) => { if (e.target.id === "together") closeTogether(); });
-function closeTogether() { clearInterval(tg.poll); tg.poll = null; tgStopTimer(); tg.paused = false; closeSheet("#together"); }
+function closeTogether() { clearInterval(tg.poll); tg.poll = null; clearTimeout(tgIdleT); tgStopTimer(); tg.paused = false; closeSheet("#together"); }
 
 // Start screen (host) or invite screen (someone who opened the link).
 function tgIntro() {
@@ -1796,7 +1796,28 @@ function tgNext() {
   $("#tgLike").addEventListener("click", (e) => tgThrow(true, e));
   tgRender();
   if (tg.timerEnd > Date.now()) tgTick(); else tgStartTimer();
+  if (!tgMine()) tgTeachFirst(); else tgArmIdle();
 }
+
+// Same nudge as the main deck: the top card leans KEEP then NOPE when the cards first appear, and again
+// after 7 seconds without a swipe.
+let tgIdleT = 0;
+function tgArmIdle(extra = 0) { clearTimeout(tgIdleT); if ($("#tgDeck")) tgIdleT = setTimeout(tgIdleNudge, IDLE_MS + extra); }
+function tgIdleNudge() {
+  const el = tgTop();
+  if (!$("#tgDeck")) return;
+  if (!el || document.hidden || tg.paused || el.classList.contains("loading") || el.classList.contains("dragging")) return tgArmIdle();
+  tgArmIdle(teach(el, 0) ? 1800 : 0);
+}
+function tgTeachFirst() {
+  const el = tgTop();
+  if (!el) return tgArmIdle();
+  const go = () => { if (el === tgTop() && !tg.paused && teach(el)) tgArmIdle(1800); else tgArmIdle(); };
+  const img = el.querySelector("img");
+  if (el.classList.contains("loading") && img) { img.addEventListener("load", go, { once: true }); img.addEventListener("error", () => tgArmIdle(), { once: true }); }
+  else go();
+}
+["pointerdown", "keydown", "wheel", "touchstart"].forEach((t) => addEventListener(t, () => { if ($("#tgDeck")) tgArmIdle(); }, { passive: true }));
 
 // 60 seconds to swipe your 12. When it runs out: "Want more time?" and another 60. The server keeps the
 // deadline too, so everyone else can see how many people are still on the clock.
@@ -1932,6 +1953,7 @@ function tgThrow(liked, evt) {
   const el = tgTop();
   const r = tgQueue()[0];
   if (!el || !r || tg.busy || tg.paused) return;
+  el._stopTeach?.();
   el.classList.add("gone", "holding");
   const stamp = el.querySelector(liked ? ".stamp-like" : ".stamp-nope");
   const s = liked ? 1 : -1;
@@ -1976,6 +1998,7 @@ async function tgVote(r, liked) {
 
 async function tgDone({ skipFetch = false } = {}) {
   tgStopTimer();
+  clearTimeout(tgIdleT);
   await tg.pending;
   if (tgQueue().length) return tgNext(); // a vote failed and went back in the stack
   if (!skipFetch) {
