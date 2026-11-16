@@ -1662,6 +1662,52 @@ function tgIntro() {
   });
 }
 
+// Keeping the round fresh. Everyone in a round pings the others over Supabase Realtime after each swipe,
+// so progress and the reveal update right away. Backups: polling while the sheet is open, a check when the
+// tab comes back (phones pause timers in the background), and a slow check while the sheet is closed.
+let tgChan = null, tgChanCode = null;
+function tgSubscribe(code) {
+  if (tgChanCode === code) return;
+  tgUnsubscribe();
+  tgChanCode = code;
+  tgChan = db.channel(`together-${code}`, { config: { broadcast: { self: false } } })
+    .on("broadcast", { event: "progress" }, () => tgSync())
+    .subscribe();
+}
+function tgUnsubscribe() { if (tgChan) db.removeChannel(tgChan); tgChan = null; tgChanCode = null; }
+const tgPing = () => tgChan?.send({ type: "broadcast", event: "progress", payload: {} }).catch(() => {});
+
+// Pull the latest and update whatever's showing. If the sheet is closed and your matches are ready, open them.
+let tgSyncing = false;
+async function tgSync() {
+  if (!tg.code || tgSyncing) return;
+  tgSyncing = true;
+  try {
+    const d2 = await tgFetch();
+    if (!d2) return;
+    // Keep my own swipes from this device (they may be newer than the server's copy).
+    tg.data = { ...d2, mine: { ...d2.mine, ...(tg.data?.mine || {}) } };
+    const open = !$("#together").hidden;
+    if (open && $("#tgDeck")) return tgStatus();
+    if (open && $("#tgWaiting")) return d2.done >= 2 ? tgReveal() : tgDone({ skipFetch: true });
+    if (!open && tgMine() >= d2.total && d2.done >= 2 && ls.get(TG_ACTIVE, null) === tg.code) {
+      openSheet("#together");
+      tgReveal();
+    }
+  } finally { tgSyncing = false; }
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && tg.code) tgSync(); });
+addEventListener("pageshow", () => { if (tg.code) tgSync(); });
+setInterval(() => { if (tg.code && $("#together").hidden && ls.get(TG_ACTIVE, null) === tg.code && !document.hidden) tgSync(); }, 20000);
+// Back from earlier with a round still open? Watch it, and show the matches if they're already in.
+function tgResumeInBackground() {
+  const code = ls.get(TG_ACTIVE, null);
+  if (!code || tg.code) return;
+  tg.code = code; tg.pid = tgPid(code);
+  tgSubscribe(code);
+  tgSync();
+}
+
 async function tgFetch() {
   const { data, error } = await db.rpc("meals_together_get", { p_code: tg.code, p_participant: tg.pid });
   if (error) { console.error(error); return null; }
@@ -1679,6 +1725,8 @@ async function openTogether(code, { fresh = false, resume = false } = {}) {
     return toast("That round has ended. Start your own!");
   }
   tg.data = data;
+  tgSubscribe(code);
+  ls.set(TG_ACTIVE, code);
   if (!data.is_host && !tgMine()) return tgIntro();
   if (data.is_host && fresh) return tgInvite();
   tgNext();
@@ -1726,14 +1774,7 @@ function tgNext() {
     </div>
     <div class="tg-status" id="tgStatus"></div>`);
   tgStatus();
-  tg.poll = setInterval(async () => {
-    if ($("#together").hidden || !$("#tgDeck")) { clearInterval(tg.poll); tg.poll = null; return; }
-    const d2 = await tgFetch();
-    if (!d2 || !$("#tgDeck")) return;
-    // Keep my own swipes from this device (they may be newer than the server's copy).
-    tg.data = { ...d2, mine: { ...d2.mine, ...tg.data.mine } };
-    tgStatus();
-  }, 5000);
+  tg.poll = setInterval(tgSync, 5000);
   $("#tgNope").addEventListener("click", (e) => tgThrow(false, e));
   $("#tgLike").addEventListener("click", (e) => tgThrow(true, e));
   tgRender();
@@ -1856,6 +1897,7 @@ async function tgVote(r, liked) {
     if (tgDeckEl()) tgRender(); else tgNext();
     return;
   }
+  tgPing();
   if (liked) {
     // Your keeps from a round are real keeps.
     const rr = clean(r);
@@ -1864,21 +1906,23 @@ async function tgVote(r, liked) {
   }
 }
 
-async function tgDone() {
+async function tgDone({ skipFetch = false } = {}) {
   await tg.pending;
   if (tgQueue().length) return tgNext(); // a vote failed and went back in the stack
-  const fresh = await tgFetch();
-  if (fresh) tg.data = fresh;
+  if (!skipFetch) {
+    const fresh = await tgFetch();
+    if (fresh) tg.data = { ...fresh, mine: { ...fresh.mine, ...tg.data.mine } };
+  }
   const d = tg.data;
   if (d.done >= 2) return tgReveal();
   const others = tgOthers();
   const waitingOn = others.length ? others.map((p) => esc(p.name)).join(" and ") : null;
   tgBody(`
-    <div class="tg-icon tg-pulse">${icon("users")}</div>
+    <div class="tg-icon tg-pulse" id="tgWaiting">${icon("users")}</div>
     <h3 id="tgTitle">Your 12 are in</h3>
     <p class="tg-lead">${waitingOn
       ? `Waiting on ${waitingOn} (${others.map((p) => `${p.n} of ${d.total}`).join(", ")}). Your matches show up here when they finish.`
-      : "Now send the link. Your matches show up here as soon as someone finishes their 12."}</p>
+      : "Now send the link. Your matches show up here as soon as someone finishes their swipes."}</p>
     <div class="share-link tg-link"><span class="sl-text"><b>Your round</b><small>${esc(tgLink().replace(/^https?:\/\//, ""))}</small></span>
       <button class="sl-ic ghost" id="tgCopy" type="button" aria-label="Copy link">${icon("copy")}</button>
       <button class="sl-ic" id="tgShare" type="button" aria-label="Share link">${icon("share")}</button></div>
@@ -1886,15 +1930,7 @@ async function tgDone() {
   $("#tgShare").addEventListener("click", tgShareLink);
   $("#tgCopy").addEventListener("click", tgCopyLink);
   clearInterval(tg.poll);
-  tg.poll = setInterval(async () => {
-    if ($("#together").hidden) { clearInterval(tg.poll); tg.poll = null; return; }
-    const d2 = await tgFetch();
-    if (!d2) return;
-    const changed = JSON.stringify(d2.people) !== JSON.stringify(tg.data.people);
-    tg.data = d2;
-    if (d2.done >= 2) { clearInterval(tg.poll); tg.poll = null; tgReveal(); }
-    else if (changed) tgDone();
-  }, 4000);
+  tg.poll = setInterval(tgSync, 4000);
 }
 
 // Every right swipe in a round is a keep. Signed in: already on your account. Guest: on this device until they sign up.
@@ -1913,6 +1949,8 @@ function tgReveal() {
   const byId = new Map((d.recipes || []).map((r) => [r.id, clean(r)]));
   const matches = (d.matches || []).map((id) => byId.get(id)).filter(Boolean);
   if (ls.get(TG_ACTIVE, null) === tg.code) ls.del(TG_ACTIVE);
+  clearInterval(tg.poll); tg.poll = null;
+  tgUnsubscribe();
   if (!matches.length) {
     tgBody(`
       <div class="tg-icon">${icon("frown")}</div>
@@ -1957,6 +1995,7 @@ function tgReveal() {
   const { data } = await db.auth.getSession();
   await setUser(data.session?.user ?? null, { merge });
   if (withCode && /^[0-9a-f]{8}$/i.test(withCode)) openTogether(withCode.toLowerCase());
+  else tgResumeInBackground();
   if (isId(unsub)) {
     const { data: ok } = await db.rpc("meals_sunday_unsubscribe", { p_token: unsub });
     toast(ok ? "Sunday Dinner Pick email is off. Turn it back on anytime in your account." : "That link didn't work. You can turn it off in your account.");
