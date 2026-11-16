@@ -1779,8 +1779,11 @@ function tgNext() {
   clearInterval(tg.poll); tg.poll = null;
   if (!tgQueue().length) return tgDone();
   tgBody(`
-    <div class="tg-top"><b id="tgTitle"></b><span class="tg-timer" id="tgTimer" aria-live="off">1:00</span></div>
-    <div class="tg-bar"><i></i></div>
+    <div class="tg-head">
+      <span class="tg-timer" id="tgTimer" aria-label="Time left">${icon("timer")}<b>1:00</b></span>
+      <span class="tg-count" id="tgTitle"></span>
+    </div>
+    <ol class="tg-segs" id="tgSegs" aria-hidden="true">${(tg.data.recipes || []).map(() => "<li></li>").join("")}</ol>
     <div class="deck tg-deck" id="tgDeck"></div>
     <div class="tg-acts">
       <button class="act act-nope" id="tgNope" aria-label="Nope" title="Nope (←)">${icon("x")}</button>
@@ -1814,7 +1817,7 @@ function tgTick() {
   if (!el) return tgStopTimer();
   if (!tg.tick) { tg.tick = setInterval(tgTick, 250); }
   const left = Math.max(0, Math.ceil((tg.timerEnd - Date.now()) / 1000));
-  el.textContent = `0:${String(left).padStart(2, "0")}`.replace(/^0:60$/, "1:00");
+  el.querySelector("b").textContent = `0:${String(left).padStart(2, "0")}`.replace(/^0:60$/, "1:00");
   el.classList.toggle("low", left <= 10);
   if (left <= 0 && !tg.paused) tgTimeUp();
 }
@@ -1859,7 +1862,12 @@ function tgRender() {
   const q = tgQueue(), d = tg.data;
   const n = d.total - q.length + 1;
   $("#tgTitle").textContent = `${Math.min(n, d.total)} of ${d.total}`;
-  $(".tg-bar i").style.width = `${((n - 1) / d.total) * 100}%`;
+  // One segment per card: green = kept, gray = nope, outlined = the one you're on.
+  const mine = d.mine || {}, cur = q[0]?.id;
+  [...$("#tgSegs").children].forEach((li, i) => {
+    const id = d.recipes[i]?.id;
+    li.className = id in mine ? (mine[id] ? "keep" : "nope") : id === cur ? "now" : "";
+  });
   // Top 3 unswiped, top card last in the DOM. New ones go underneath; existing ones are never moved.
   const want = q.slice(0, 3).reverse();
   const have = new Map([...deck.querySelectorAll(".card:not(.gone)")].map((el) => [el.dataset.id, el]));
