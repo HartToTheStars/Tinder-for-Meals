@@ -9,3 +9,9 @@
 --   meals_together_get(p_code, p_participant) -> jsonb {code, host_name, is_host, total, recipes,
 --     people[{name,n,me}], mine{recipe_id: liked}, done, matches[recipe_id]} or null
 -- Participants are a random id each device keeps per round (plus user_id when signed in).
+
+-- Applied as migrations meals_together_full and meals_together_cap_8 (2026-11-16):
+-- A round holds exactly 8: the host (always allowed, even after it fills) plus up to 7 others.
+-- meals_together_vote refuses a newcomer once 7 non-host people have swiped.
+-- meals_together_get adds 'full': true for a newcomer when the round is at capacity, so the
+-- app shows "This round is full" before they start swiping.

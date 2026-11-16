@@ -1725,11 +1725,24 @@ async function openTogether(code, { fresh = false, resume = false } = {}) {
     return toast("That round has ended. Start your own!");
   }
   tg.data = data;
+  if (data.full) return tgFull();
   tgSubscribe(code);
   ls.set(TG_ACTIVE, code);
   if (!data.is_host && !tgMine()) return tgIntro();
   if (data.is_host && fresh) return tgInvite();
   tgNext();
+}
+
+// Someone opened a round that already has 8 people in it.
+function tgFull() {
+  if (ls.get(TG_ACTIVE, null) === tg.code) ls.del(TG_ACTIVE);
+  tgUnsubscribe();
+  tgBody(`
+    <div class="tg-icon">${icon("users")}</div>
+    <h3 id="tgTitle">This round is full</h3>
+    <p class="tg-lead">8 people are already swiping ${esc(poss(tg.data.host_name))} round. Start your own and send the link.</p>
+    <button class="btn tg-go" id="tgOwn" type="button">Start your own round</button>`);
+  $("#tgOwn").addEventListener("click", () => { tg.code = null; tg.data = null; tgIntro(); });
 }
 
 // Host, right after starting: send the link first (it's the point), then swipe.
@@ -1893,6 +1906,11 @@ async function tgVote(r, liked) {
   if (error || !ok) {
     // Put it back so it can be swiped again.
     const mine = { ...tg.data.mine }; delete mine[r.id]; tg.data.mine = mine;
+    // First swipe refused: the round may have filled up while you were on the start screen.
+    if (!error && !tgMine()) {
+      const d2 = await tgFetch();
+      if (d2?.full) { tg.data = d2; return tgFull(); }
+    }
     toast("Couldn't save that one. Try again?");
     if (tgDeckEl()) tgRender(); else tgNext();
     return;
