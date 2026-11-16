@@ -468,11 +468,11 @@ function bindDrag(el) {
   el.addEventListener("pointercancel", end);
 }
 
-const sheetOpen = () => ["#break", "#save", "#acct", "#people", "#landing", "#nameSheet"].some((s) => !$(s).hidden);
+const sheetOpen = () => ["#break", "#save", "#acct", "#people", "#landing", "#nameSheet", "#together", "#mailPrev"].some((s) => !$(s).hidden);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const buzz = (pattern) => { try { navigator.vibrate?.(pattern); } catch (e) { /* not supported */ } };
-async function stampSlam(el, stamp, s, f) {
+async function stampSlam(el, stamp, s, f, after = restack) {
   const dragged = !!f;
   f = f || { dx: 0, dy: 0 };
   el.style.transition = "none";
@@ -481,7 +481,7 @@ async function stampSlam(el, stamp, s, f) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
     stamp.style.opacity = 1;
     el.classList.remove("holding");
-    restack();
+    after();
     await el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, delay: 120, fill: "forwards" }).finished;
     return;
   }
@@ -514,7 +514,7 @@ async function stampSlam(el, stamp, s, f) {
   await sleep(dragged ? 90 : 150);
   // Stamp done: now the next card moves up as this one is thrown.
   el.classList.remove("holding");
-  restack();
+  after();
   // Throw onward from wherever it is: solid until it's off screen, a little spin, a short fade at the very end.
   const w = window.innerWidth, cw = el.offsetWidth;
   const tx = s * (w + cw * 0.9), ty = ly - 60, r1 = lr + s * 40;
@@ -1547,6 +1547,14 @@ $("#btnNope").addEventListener("click", () => swipe(false));
 $("#btnUndo").addEventListener("click", undo);
 
 document.addEventListener("keydown", (e) => {
+  if (!$("#together").hidden) {
+    if (e.key === "Escape") return closeTogether();
+    if (e.target.matches("input")) return;
+    if (e.key === "ArrowRight" && $("#tgDeck")) { e.preventDefault(); tgThrow(true); }
+    else if (e.key === "ArrowLeft" && $("#tgDeck")) { e.preventDefault(); tgThrow(false); }
+    return;
+  }
+  if (!$("#mailPrev").hidden) { if (e.key === "Escape") closeSheet("#mailPrev"); return; }
   if (!$("#break").hidden) { if (e.key === "Escape") $("#breakGo").click(); return; }
   if (!$("#save").hidden) { if (e.key === "Escape") skipSave(); return; }
   if (!$("#acct").hidden) { if (e.key === "Escape") closeSheet("#acct"); return; }
@@ -1698,76 +1706,142 @@ async function tgCopyLink() {
 
 function tgSwipe() { tgNext(); }
 
-// Next unswiped card, or the waiting / reveal screen when you're done.
+// The round's card area works like the main deck: same cards, loader, fanned stack, drag, stamp slam.
+const tgQueue = () => (tg.data?.recipes || []).filter((x) => !(x.id in (tg.data.mine || {})));
 function tgNext() {
   clearInterval(tg.poll); tg.poll = null;
-  const d = tg.data, mine = d.mine || {};
-  const r = (d.recipes || []).find((x) => !(x.id in mine));
-  if (!r) return tgDone();
-  const n = tgMine() + 1;
+  if (!tgQueue().length) return tgDone();
   tgBody(`
-    <div class="tg-top"><b id="tgTitle">${n} of ${d.total}</b><button class="tg-invite" id="tgInvite" type="button">${icon("user-plus")}Invite</button></div>
-    <div class="tg-bar"><i style="width:${((n - 1) / d.total) * 100}%"></i></div>
-    <article class="tg-card" id="tgCard">
-      <img src="${esc(clean(r).image)}" alt="" referrerpolicy="no-referrer" draggable="false" />
-      <span class="tg-stamp tg-yes">KEEP</span><span class="tg-stamp tg-no">NOPE</span>
-      <div class="tg-info"><span class="source">${esc(r.source)}</span><h4>${esc(clean(r).title)}</h4></div>
-    </article>
+    <div class="tg-top"><b id="tgTitle"></b></div>
+    <div class="tg-bar"><i></i></div>
+    <div class="deck tg-deck" id="tgDeck"></div>
     <div class="tg-acts">
-      <button class="act act-nope" id="tgNope" aria-label="Nope">${icon("x")}</button>
-      <button class="act act-like" id="tgLike" aria-label="Keep">${icon("heart")}</button>
-    </div>`);
-  const next = d.recipes.find((x) => !(x.id in mine) && x.id !== r.id);
-  if (next) preload(clean(next).image);
+      <button class="act act-nope" id="tgNope" aria-label="Nope" title="Nope (←)">${icon("x")}</button>
+      <button class="act act-like" id="tgLike" aria-label="Keep" title="Keep (→)">${icon("heart")}</button>
+    </div>
+    <button class="tg-again" id="tgInvite" type="button">${icon("user-plus")}Invite someone</button>`);
   $("#tgInvite").addEventListener("click", tgShareLink);
-  $("#tgNope").addEventListener("click", () => tgVote(r, false));
-  $("#tgLike").addEventListener("click", () => tgVote(r, true));
-  tgDrag($("#tgCard"), r);
+  $("#tgNope").addEventListener("click", (e) => tgThrow(false, e));
+  $("#tgLike").addEventListener("click", (e) => tgThrow(true, e));
+  tgRender();
+}
+const tgDeckEl = () => $("#tgDeck");
+const tgTop = () => [...(tgDeckEl()?.querySelectorAll(".card:not(.gone)") || [])].pop();
+function tgRestack() {
+  const deck = tgDeckEl(); if (!deck) return;
+  const holding = deck.querySelectorAll(".card.gone.holding").length;
+  [...deck.querySelectorAll(".card:not(.gone)")].reverse().forEach((c, i) => { c.dataset.depth = Math.min(i + holding, 5); });
+}
+let tgSide = "r";
+function tgRender() {
+  const deck = tgDeckEl(); if (!deck) return;
+  const q = tgQueue(), d = tg.data;
+  const n = d.total - q.length + 1;
+  $("#tgTitle").textContent = `${Math.min(n, d.total)} of ${d.total}`;
+  $(".tg-bar i").style.width = `${((n - 1) / d.total) * 100}%`;
+  // Top 3 unswiped, top card last in the DOM. New ones go underneath; existing ones are never moved.
+  const want = q.slice(0, 3).reverse();
+  const have = new Map([...deck.querySelectorAll(".card:not(.gone)")].map((el) => [el.dataset.id, el]));
+  want.forEach((r) => {
+    if (have.has(r.id)) return;
+    const rr = clean(r);
+    const el = document.createElement("article");
+    el.className = "card deal";
+    el.addEventListener("animationend", (e) => { if (e.animationName === "deal") el.classList.remove("deal"); });
+    el.dataset.id = r.id;
+    el.dataset.side = (tgSide = tgSide === "l" ? "r" : "l");
+    el.innerHTML = cardHTML(rr);
+    const img = el.querySelector("img");
+    if (!img.complete) {
+      el.classList.add("loading");
+      const shown = () => el.classList.remove("loading");
+      img.addEventListener("load", shown, { once: true });
+      img.addEventListener("error", shown, { once: true });
+    }
+    img.onerror = () => img.remove();
+    const firstLive = deck.querySelector(".card:not(.gone)");
+    firstLive ? firstLive.before(el) : deck.appendChild(el);
+  });
+  q.slice(3, 5).forEach((r) => preload(clean(r).image));
+  tgRestack();
+  const top = tgTop();
+  if (top) tgDrag(top);
+}
+function tgDrag(el) {
+  if (el._bound) return;
+  el._bound = true;
+  let sx = 0, sy = 0, dx = 0, dy = 0, down = false;
+  const like = el.querySelector(".stamp-like"), nope = el.querySelector(".stamp-nope");
+  el.addEventListener("pointerdown", (e) => {
+    if (el !== tgTop() || tg.busy) return;
+    down = true; sx = e.clientX; sy = e.clientY; dx = dy = 0;
+    el.setPointerCapture(e.pointerId);
+    el.classList.add("dragging");
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    dx = e.clientX - sx; dy = e.clientY - sy;
+    el.style.transform = `translate(${dx}px, ${dy * 0.4}px) rotate(${dx / 14}deg)`;
+    like.style.opacity = Math.max(0, Math.min(1, dx / 90));
+    nope.style.opacity = Math.max(0, Math.min(1, -dx / 90));
+  });
+  const end = (e) => {
+    if (!down) return;
+    down = false;
+    el.classList.remove("dragging");
+    const threshold = Math.min(110, el.offsetWidth * 0.28);
+    el._fling = { dx, dy: dy * 0.4 };
+    if (dx > threshold) tgThrow(true, e);
+    else if (dx < -threshold) tgThrow(false, e);
+    else { el.style.transform = ""; like.style.opacity = nope.style.opacity = 0; }
+  };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
 }
 
-function tgDrag(card, r) {
-  let x0 = null, dx = 0;
-  card.addEventListener("pointerdown", (e) => { x0 = e.clientX; dx = 0; card.setPointerCapture(e.pointerId); card.style.transition = "none"; });
-  card.addEventListener("pointermove", (e) => {
-    if (x0 == null) return;
-    dx = e.clientX - x0;
-    card.style.transform = `translateX(${dx}px) rotate(${dx / 18}deg)`;
-    card.style.setProperty("--yes", Math.max(0, Math.min(1, dx / 90)));
-    card.style.setProperty("--no", Math.max(0, Math.min(1, -dx / 90)));
-  });
-  const up = () => {
-    if (x0 == null) return;
-    x0 = null; card.style.transition = "";
-    if (Math.abs(dx) > 90) return tgVote(r, dx > 0);
-    card.style.transform = ""; card.style.setProperty("--yes", 0); card.style.setProperty("--no", 0);
-  };
-  card.addEventListener("pointerup", up);
-  card.addEventListener("pointercancel", up);
+function tgThrow(liked, evt) {
+  const el = tgTop();
+  const r = tgQueue()[0];
+  if (!el || !r || tg.busy) return;
+  el.classList.add("gone", "holding");
+  const stamp = el.querySelector(liked ? ".stamp-like" : ".stamp-nope");
+  const s = liked ? 1 : -1;
+  const last = tgQueue().length === 1;
+  const drop = () => { el.remove(); tgRestack(); if (last) tgDone(); };
+  stampSlam(el, stamp, s, evt?.pointerType && el._fling ? el._fling : null, tgRestack).then(drop, drop);
+  const btn = liked ? $("#tgLike") : $("#tgNope");
+  btn.classList.remove("pulse"); void btn.offsetWidth; btn.classList.add("pulse");
+  if (liked) {
+    const rect = btn.getBoundingClientRect();
+    hearts(evt?.clientX ?? rect.left + rect.width / 2, evt?.clientY ?? rect.top);
+  }
+  tg.data.mine = { ...tg.data.mine, [r.id]: liked };
+  tgRender();
+  // Votes go one at a time, so the reveal never checks before your last one lands.
+  tg.pending = (tg.pending || Promise.resolve()).then(() => tgVote(r, liked));
 }
 
 async function tgVote(r, liked) {
-  if (tg.busy) return;
-  tg.busy = true;
-  const card = $("#tgCard");
-  if (card) { card.style.transition = "transform .3s ease, opacity .3s ease"; card.style.transform = `translateX(${liked ? 120 : -120}%) rotate(${liked ? 14 : -14}deg)`; card.style.opacity = "0"; }
-  const name = tgName() || $("#tgName")?.value || "Someone";
-  const [{ data: ok, error }] = await Promise.all([
-    db.rpc("meals_together_vote", { p_code: tg.code, p_participant: tg.pid, p_name: name, p_recipe: r.id, p_liked: liked }),
-    new Promise((res) => setTimeout(res, 260)),
-  ]);
-  tg.busy = false;
-  if (error || !ok) { toast("Couldn't save that one. Try again?"); return tgNext(); }
-  tg.data.mine = { ...tg.data.mine, [r.id]: liked };
+  const name = tgName() || "Someone";
+  const { data: ok, error } = await db.rpc("meals_together_vote", { p_code: tg.code, p_participant: tg.pid, p_name: name, p_recipe: r.id, p_liked: liked });
+  if (error || !ok) {
+    // Put it back so it can be swiped again.
+    const mine = { ...tg.data.mine }; delete mine[r.id]; tg.data.mine = mine;
+    toast("Couldn't save that one. Try again?");
+    if (tgDeckEl()) tgRender(); else tgNext();
+    return;
+  }
   if (liked) {
     // Your keeps from a round are real keeps.
     const rr = clean(r);
-    if (!state.kept.some((k) => k.id === rr.id)) { state.kept = [rr, ...state.kept]; updateCount(); renderKept(); }
+    if (!state.kept.some((k) => k.id === rr.id)) { state.kept = [{ ...rr, swiped_at: new Date().toISOString() }, ...state.kept]; updateCount(true); renderKept(); }
     store.swipe(rr, true);
   }
-  tgNext();
 }
 
 async function tgDone() {
+  await tg.pending;
+  if (tgQueue().length) return tgNext(); // a vote failed and went back in the stack
   const fresh = await tgFetch();
   if (fresh) tg.data = fresh;
   const d = tg.data;

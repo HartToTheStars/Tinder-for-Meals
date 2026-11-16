@@ -722,20 +722,10 @@ a.src-row:hover { background: var(--bg); }
 .tg-form .tg-go { margin-top: 0; }
 .tg-link { margin-top: 18px; }
 .tg-foot { font-size: 12.5px !important; margin-top: 14px !important; }
-.tg-top { display: flex; align-items: center; justify-content: space-between; padding: 2px 46px 10px 2px; }
+.tg-top { display: flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 46px 8px; margin-top: -12px; }
 .tg-top b { font-size: 14px; font-weight: 600; color: var(--muted); }
-.tg-invite { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font: 600 13px Inter, system-ui, sans-serif; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
-.tg-invite svg { width: 15px; height: 15px; }
 .tg-bar { height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; margin-bottom: 14px; }
 .tg-bar i { display: block; height: 100%; background: var(--tomato); border-radius: 4px; transition: width .3s ease; }
-.tg-card { position: relative; border-radius: 22px; overflow: hidden; aspect-ratio: 4 / 4.4; background: var(--bg); touch-action: pan-y; user-select: none; cursor: grab; transition: transform .25s ease; box-shadow: var(--shadow); }
-.tg-card img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
-.tg-info { position: absolute; inset: auto 0 0 0; padding: 50px 18px 16px; text-align: left; color: #fff; background: linear-gradient(transparent, rgb(20 14 10 / .78)); }
-.tg-info .source { font-size: 12px; font-weight: 600; opacity: .85; }
-.tg-info h4 { font-family: var(--serif); font-size: 22px; line-height: 1.15; margin-top: 2px; }
-.tg-stamp { position: absolute; top: 22px; padding: 4px 12px; border: 3px solid; border-radius: 10px; font: 800 24px Inter, system-ui, sans-serif; letter-spacing: .06em; opacity: 0; }
-.tg-yes { left: 18px; color: var(--basil); transform: rotate(-12deg); opacity: var(--yes, 0); }
-.tg-no { right: 18px; color: var(--tomato); transform: rotate(12deg); opacity: var(--no, 0); }
 .tg-acts { display: flex; justify-content: center; gap: 28px; padding: 16px 0 6px; }
 .tg-wait { display: grid; place-items: center; min-height: 200px; }
 .tg-kicker { font-size: 11px !important; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--tomato) !important; margin: 4px 0 0 !important; }
@@ -746,3 +736,12 @@ a.src-row:hover { background: var(--bg); }
 .tg-matches b { font-family: var(--serif); font-size: 16px; line-height: 1.2; }
 .tg-matches small { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .tg-matches svg { width: 18px; height: 18px; color: var(--muted); flex: none; margin-right: 4px; }
+
+.break-sheet { min-width: 0; }
+.tg-link .sl-text small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tg-deck { flex: none; height: min(52dvh, 460px); min-height: 300px; max-height: none; margin: 4px 0 0; }
+.tg-deck .card { text-align: left; }
+.tg-deck .card h2 { font-size: 24px; }
+.tg-acts { padding: 18px 0 4px; }
+.tg-again { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 8px 12px; font: 600 13px Inter, system-ui, sans-serif; color: var(--muted); }
+.tg-again svg { width: 15px; height: 15px; }
