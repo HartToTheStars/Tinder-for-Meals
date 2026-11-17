@@ -383,7 +383,7 @@ function setCat(cat) {
   state.cat = cat;
   markCat($("#cats"), cat);
   ls.set("forks:cat", cat);
-  updateFilterRow();
+  renderMood();
   reshuffle();
 }
 function reshuffle() {
@@ -399,91 +399,69 @@ function reshuffle() {
 function onWantChange() {
   saveSet("forks:want", state.want);
   renderTagRow($("#tags"), state.want, onWantChange);
-  updateFilterRow();
+  renderMood();
   reshuffle();
 }
 
-// ---------- Filters behind one link ----------
-// Course and diet controls live in a sheet behind "Filters". On a first visit they show on the swipe
-// screen, then fly into the Filters link with a short tip, so people know where they went.
-$("#fIc").innerHTML = icon("sliders-horizontal");
-$("#fClose").innerHTML = icon("x");
-function updateFilterRow() {
-  const tags = [...state.want];
-  const parts = [];
-  if (state.cat) parts.push(CATS[state.cat][1]);
-  if (tags.length === 1) parts.push(TAG[tags[0]].l);
-  if (tags.length > 1) parts.push(`${tags.length} diet filters`);
-  $("#fSum").textContent = parts.length ? parts.join(" · ") : "All recipes";
-  const n = tags.length + (state.cat ? 1 : 0);
-  $("#fCount").textContent = `(${n})`;
-  $("#fCount").hidden = !n;
-  $("#fBtn").classList.toggle("is-on", n > 0);
-  $("#fBtn").setAttribute("aria-label", n ? `Filters, ${n} on` : "Filters");
+// ---------- "Show me anything" ----------
+// The filters read as one sentence at the top of the deck. The red words are buttons that open a small
+// picker under them. One word until both a course and a diet are picked; then each part is its own word
+// and opens only its own section.
+const MOOD_NOUN = { "": "anything", main: "mains", appetizer: "apps", dessert: "desserts", drink: "drinks" };
+const MOOD_ADJ = [["quick", "quick"], ["kid", "kid-friendly"], ["protein", "protein-packed"], ["vegetarian", "vegetarian"], ["vegan", "vegan"], ["gluten-free", "gluten-free"], ["dairy-free", "dairy-free"]];
+let moodOpen = "", moodPrev = {};
+function renderMood() {
+  const picked = MOOD_ADJ.filter(([k]) => state.want.has(k)).map(([, w]) => w);
+  const shown = picked.slice(0, 2), more = picked.length - shown.length;
+  const noun = MOOD_NOUN[state.cat] ?? "anything";
+  const split = !!state.cat && picked.length > 0;
+  const word = (mode, text, key) => {
+    const changed = moodPrev[key] !== undefined && moodPrev[key] !== text;
+    moodPrev[key] = text;
+    const on = moodOpen && (moodOpen === mode || moodOpen === "all");
+    return `<button class="mood-w${on ? " is-open" : ""}" type="button" data-open="${mode}" aria-haspopup="dialog" aria-expanded="${!!on}"><span${changed ? ' class="flip"' : ""}>${esc(text)}</span></button>`;
+  };
+  const parts = split
+    ? `${word("diet", shown.join(" "), "diet")} ${word("course", noun, "course")}`
+    : word("all", [...shown, noun].join(" "), "all");
+  const extra = more ? `, ${word("diet", `+${more}`, "more")}` : "";
+  $("#mood").innerHTML = `Show me ${parts}${extra}.`;
+  $("#moodReset").hidden = !(state.cat || state.want.size);
 }
-function openFilters() {
-  ls.set("forks:filtersSeen", true);
-  hideFilterTip();
-  $("#fCatsSlot").appendChild($("#cats"));
-  $("#fTagsSlot").appendChild($("#tags"));
-  $("#tags").classList.add("in-sheet");
+function openMood(mode) {
+  moodOpen = mode;
+  $("#mpCourse").hidden = mode === "diet";
+  $("#mpDiet").hidden = mode === "course";
   renderTagRow($("#tags"), state.want, onWantChange);
-  openSheet("#filters");
+  $("#moodScrim").hidden = false;
+  $("#moodPop").hidden = false;
+  renderMood();
+  ($("#moodPop").querySelector(mode === "diet" ? ".tag" : ".cat.is-active") || $("#moodDone")).focus({ preventScroll: true });
 }
-function closeFilters() {
-  closeSheet("#filters", () => {
-    $("#tags").classList.remove("in-sheet");
-    $("#fz").append($("#cats"), $("#tags"));
-  });
+function closeMood() {
+  if ($("#moodPop").hidden) return;
+  moodOpen = "";
+  $("#moodPop").hidden = true;
+  $("#moodScrim").hidden = true;
+  renderMood();
 }
-$("#fBtn").addEventListener("click", openFilters);
-$("#fClose").addEventListener("click", closeFilters);
-$("#fDone").addEventListener("click", closeFilters);
-$("#filters").addEventListener("click", (e) => { if (e.target.id === "filters") closeFilters(); });
-$("#fClear").addEventListener("click", () => {
+$("#mood").addEventListener("click", (e) => {
+  const b = e.target.closest(".mood-w");
+  if (!b) return;
+  const mode = b.dataset.open;
+  if (moodOpen === mode) closeMood(); else openMood(mode);
+});
+$("#moodScrim").addEventListener("click", closeMood);
+$("#moodDone").addEventListener("click", closeMood);
+$("#moodReset").addEventListener("click", () => {
   const changed = state.cat || state.want.size;
   state.want.clear();
   saveSet("forks:want", state.want);
   renderTagRow($("#tags"), state.want, onWantChange);
   if (state.cat) { state.cat = ""; markCat($("#cats"), ""); ls.set("forks:cat", ""); }
-  updateFilterRow();
+  renderMood();
   if (changed) reshuffle();
 });
-function hideFilterTip() { clearTimeout(hideFilterTip.t); $("#fTip").hidden = true; }
-// First visit: show the filters, then tuck them into the link. After that they start tucked.
-function introFilters() {
-  const fz = $("#fz");
-  if (ls.get("forks:filtersSeen", false) || matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    fz.classList.add("tucked");
-    ls.set("forks:filtersSeen", true);
-    return;
-  }
-  setTimeout(() => {
-    if (fz.classList.contains("tucked") || !$("#filters").hidden) return;
-    const b = $("#fBtn").getBoundingClientRect();
-    const tx = b.left + b.width / 2, ty = b.top + b.height / 2;
-    [...fz.querySelectorAll(".cat, .tag")].forEach((el, i) => {
-      const r = el.getBoundingClientRect();
-      el.style.setProperty("--tx", `${tx - (r.left + r.width / 2)}px`);
-      el.style.setProperty("--ty", `${ty - (r.top + r.height / 2)}px`);
-      el.style.setProperty("--i", i);
-    });
-    fz.classList.add("tucking");
-    setTimeout(() => {
-      fz.classList.add("tucked");
-      fz.classList.remove("tucking");
-      fz.querySelectorAll(".cat, .tag").forEach((el) => el.removeAttribute("style"));
-      const btn = $("#fBtn");
-      btn.classList.remove("bump"); void btn.offsetWidth; btn.classList.add("bump");
-      setTimeout(() => {
-        if (!$("#filters").hidden) return;
-        $("#fTip").hidden = false;
-        hideFilterTip.t = setTimeout(hideFilterTip, 3500);
-      }, 450);
-      ls.set("forks:filtersSeen", true);
-    }, 950);
-  }, 1600);
-}
 $("#cats").addEventListener("click", (e) => { const b = e.target.closest(".cat"); if (b) setCat(b.dataset.cat); });
 
 // One-time intro: lean right (KEEP), then left (NOPE), then settle.
@@ -569,7 +547,7 @@ function bindDrag(el) {
   el.addEventListener("pointercancel", end);
 }
 
-const sheetOpen = () => ["#break", "#save", "#acct", "#people", "#landing", "#nameSheet", "#together", "#mailPrev", "#filters"].some((s) => !$(s).hidden);
+const sheetOpen = () => ["#break", "#save", "#acct", "#people", "#landing", "#nameSheet", "#together", "#mailPrev", "#moodPop"].some((s) => !$(s).hidden);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const buzz = (pattern) => { try { navigator.vibrate?.(pattern); } catch (e) { /* not supported */ } };
@@ -1657,7 +1635,7 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (!$("#mailPrev").hidden) { if (e.key === "Escape") closeSheet("#mailPrev"); return; }
-  if (!$("#filters").hidden) { if (e.key === "Escape") closeFilters(); return; }
+  if (!$("#moodPop").hidden) { if (e.key === "Escape") closeMood(); return; }
   if (!$("#break").hidden) { if (e.key === "Escape") $("#breakGo").click(); return; }
   if (!$("#save").hidden) { if (e.key === "Escape") skipSave(); return; }
   if (!$("#acct").hidden) { if (e.key === "Escape") closeSheet("#acct"); return; }
@@ -1701,8 +1679,7 @@ renderCats($("#keptCats"), state.keptCat, true);
 state.want = loadSet("forks:want");
 state.keptWant = loadSet("forks:keptWant");
 renderTagRow($("#tags"), state.want, onWantChange);
-updateFilterRow();
-introFilters();
+renderMood();
 function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", state.keptWant); renderKept(); }
 
 // ---------- Swipe with someone ----------
