@@ -1,0 +1,8 @@
+-- Applied as migration meals_deck_fast (2026-11-17).
+-- Bug: meals_deck(n, cat, want, p_liked, p_noped) took ~9s for a user with ~90 swipes, over the 8s
+-- statement timeout, so the app showed "Couldn't reach the kitchen" (before that, "You've seen it all").
+-- Cause: the taste-weights CTE (meals_weights) was inlined into a correlated subquery and re-evaluated
+-- once per candidate recipe; cost grew with the user's swipe count.
+-- Fix: weights, seen and candidates are MATERIALIZED once per call and candidates are scored with one
+-- join + group by. Same scoring, same per-source mixing. Now ~140ms for the same user.
+-- Full function body: see the meals_deck_fast migration in Supabase (supabase_migrations).
