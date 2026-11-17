@@ -736,6 +736,7 @@ a.src-row:hover { background: var(--bg); }
 .tg-link .sl-text small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tg-deck .card { text-align: left; }
 .tg-deck .card h2 { font-size: 24px; }
+.tg-deck .card p { margin: 8px 0 0; max-width: none; color: inherit; font-size: 14px; }
 
 .tg-in { display: inline-flex; align-items: center; gap: 6px; margin: 0 !important; font-size: 13.5px !important; font-weight: 600; color: var(--basil) !important; animation: pop .4s cubic-bezier(.3,1.6,.5,1); }
 .tg-in svg { width: 16px; height: 16px; stroke-width: 2.6; }
@@ -817,3 +818,23 @@ a.src-row:hover { background: var(--bg); }
 .tg-confirm h4 { font-family: var(--serif); font-size: 21px; margin: 0; }
 .tg-confirm p { margin: 8px auto 16px !important; max-width: 280px; color: var(--muted); font-size: 14.5px; line-height: 1.45; }
 .tg-endbtn { background: var(--tomato) !important; color: #fff !important; }
+
+/* Swipe with someone on desktop: the round gets its own room. The app behind it goes away, the
+   backdrop glows with the photo you're deciding on, and the card is sized like the main deck. */
+.tg-amb { display: none; }
+@media (min-width: 1000px) {
+  #together:has(.tg-deck) { overflow: hidden; background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  #together:has(.tg-deck) .tg-amb { display: block; position: absolute; inset: -120px; background-size: cover; background-position: center; filter: blur(90px) saturate(1.5); opacity: .55; transition: background-image .7s ease; pointer-events: none; }
+  #together:has(.tg-deck) .tg-amb::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 25%, var(--bg) 80%); }
+  .tg-sheet:has(.tg-deck) { max-width: 500px; padding: 30px 36px 26px; box-shadow: 0 40px 100px rgb(0 0 0 / .28), inset 0 0 0 1px var(--line); }
+  .tg-sheet:has(.tg-deck) .sheet-x { top: 22px; right: 22px; }
+  .tg-sheet:has(.tg-deck) .sheet-more { top: 22px; right: 66px; }
+  .tg-sheet .tg-head { margin-top: -4px; margin-bottom: 16px; }
+  .tg-sheet .tg-deck { height: clamp(280px, calc(100dvh - 350px), 580px); min-height: 0; max-height: none; margin: 0 26px; }
+  .tg-deck .card h2 { font-size: 30px; }
+  .tg-deck .card p { -webkit-line-clamp: 2; }
+  .tg-deck .card-body { padding: 24px; }
+  .tg-acts { gap: 40px; padding-top: 26px; }
+  .tg-acts .act { width: 68px; height: 68px; }
+  .tg-status { margin-top: 38px; }
+}

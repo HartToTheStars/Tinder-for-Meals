@@ -1972,8 +1972,8 @@ function tgNext() {
     <ol class="tg-segs" id="tgSegs" aria-hidden="true">${(tg.data.recipes || []).map(() => "<li></li>").join("")}</ol>
     <div class="deck tg-deck" id="tgDeck"></div>
     <div class="tg-acts">
-      <button class="act act-nope" id="tgNope" aria-label="Nope" title="Nope (←)">${icon("x")}</button>
-      <button class="act act-like" id="tgLike" aria-label="Keep" title="Keep (→)">${icon("heart")}</button>
+      <button class="act act-nope" id="tgNope" aria-label="Nope" title="Nope (←)" data-key="←">${icon("x")}</button>
+      <button class="act act-like" id="tgLike" aria-label="Keep" title="Keep (→)" data-key="→">${icon("heart")}</button>
     </div>
     <div class="tg-status" id="tgStatus"></div>`);
   tgShowMore();
@@ -2076,6 +2076,9 @@ function tgRender() {
     const id = d.recipes[i]?.id;
     li.className = id in mine ? (mine[id] ? "keep" : "nope") : id === cur ? "now" : "";
   });
+  // Desktop: the room behind the round glows with the photo you're deciding on.
+  const amb = $("#tgAmb"), img = q[0]?.image;
+  if (amb && img && amb.dataset.src !== img) { amb.dataset.src = img; amb.style.backgroundImage = `url("${img.replace(/"/g, "%22")}")`; }
   // Top 3 unswiped, top card last in the DOM. New ones go underneath; existing ones are never moved.
   const want = q.slice(0, 3).reverse();
   const have = new Map([...deck.querySelectorAll(".card:not(.gone)")].map((el) => [el.dataset.id, el]));
