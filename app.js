@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "/icons.js?v=49";
+import { icon } from "/icons.js?v=50";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -1649,7 +1649,8 @@ $("#btnUndo").addEventListener("click", undo);
 
 document.addEventListener("keydown", (e) => {
   if (!$("#together").hidden) {
-    if (e.key === "Escape") return closeTogether();
+    if (e.key === "Escape") return $("#tgMenu").hidden ? closeTogether() : tgCloseMenu();
+    if (!$("#tgMenu").hidden) return;
     if (e.target.matches("input")) return;
     if (e.key === "ArrowRight" && $("#tgDeck")) { e.preventDefault(); tgThrow(true); }
     else if (e.key === "ArrowLeft" && $("#tgDeck")) { e.preventDefault(); tgThrow(false); }
@@ -1716,7 +1717,7 @@ const tgPid = (code) => {
 };
 const tgName = () => state.me?.name || ls.get(TG_NAME, "");
 const tgLink = () => `${location.origin}/?with=${tg.code}`;
-const tgBody = (html) => { $("#tgBody").innerHTML = html; };
+const tgBody = (html) => { $("#tgBody").innerHTML = html; $("#tgMore").hidden = true; tgCloseMenu(); };
 const tgOthers = () => (tg.data?.people || []).filter((p) => !p.me);
 // "Kelly's", but "James'".
 const poss = (n) => (/s$/i.test(n) ? `${n}'` : `${n}'s`);
@@ -1848,30 +1849,55 @@ async function openTogether(code, { fresh = false, resume = false } = {}) {
 }
 
 // End the round (host) or leave it (anyone else), then start fresh. Tap once to arm, again to confirm.
-function tgEndHTML() {
-  return `<button class="tg-end" id="tgEnd" type="button">${tg.data?.is_host ? "End round and start over" : "Leave and start my own"}</button>`;
+// Round options live behind the "..." button next to the X: invite, and end (host) or leave (guest).
+// Ending is rare and affects everyone, so it sits off the main flow and asks for a real confirmation.
+$("#tgMore").innerHTML = icon("ellipsis");
+$("#tgMore").addEventListener("click", () => tgOpenMenu());
+function tgShowMore() { $("#tgMore").hidden = false; }
+function tgCloseMenu() { const m = $("#tgMenu"); if (m) { m.hidden = true; m.innerHTML = ""; } }
+function tgOpenMenu() {
+  tgTop()?._stopTeach?.();
+  const host = tg.data?.is_host;
+  const m = $("#tgMenu");
+  m.innerHTML = `
+    <div class="tg-menu-scrim" data-close></div>
+    <div class="tg-menu" role="dialog" aria-modal="true" aria-label="Round options">
+      <button class="tg-mi" id="tgMiInvite" type="button">${icon("share")}<span><b>Invite someone</b><small>Send the link to this round</small></span></button>
+      <button class="tg-mi danger" id="tgMiEnd" type="button">${icon(host ? "rotate-ccw" : "log-out")}<span><b>${host ? "Start a new round" : "Leave this round"}</b><small>${host ? "Ends this round for everyone" : "Your picks stay in Keeps"}</small></span></button>
+      <button class="tg-mcancel" type="button" data-close>Cancel</button>
+    </div>`;
+  m.hidden = false;
+  m.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", tgCloseMenu));
+  $("#tgMiInvite").addEventListener("click", () => { tgCloseMenu(); tgShareLink(); });
+  $("#tgMiEnd").addEventListener("click", () => (host ? tgConfirmEnd() : tgFinish(false)));
+  $("#tgMiInvite").focus();
 }
-function tgBindEnd() {
-  const b = $("#tgEnd"); if (!b) return;
-  const label = b.textContent;
-  b.addEventListener("click", async () => {
-    if (!b.classList.contains("armed")) {
-      b.classList.add("armed");
-      b.textContent = tg.data?.is_host ? "Tap again to end the round for everyone" : "Tap again to leave this round";
-      clearTimeout(b._t);
-      b._t = setTimeout(() => { b.classList.remove("armed"); b.textContent = label; }, 4000);
-      return;
-    }
-    const host = tg.data?.is_host, code = tg.code;
-    if (host) {
-      const { error } = await db.rpc("meals_together_end", { p_code: code, p_participant: tg.pid });
-      if (error) return toast("Couldn't end the round. Try again?");
-      tgPing(); // everyone else sees it ended right away
-    }
-    tgReset();
-    tgIntro();
-    toast(host ? "Round ended" : "You left the round");
-  });
+// Host: confirm only when it affects someone else. Nobody else in yet: just start over.
+function tgConfirmEnd() {
+  const others = tgOthers().map((p) => p.name);
+  if (!others.length) return tgFinish(true);
+  const names = others.length === 1 ? others[0] : others.length === 2 ? `${others[0]} and ${others[1]}` : `${others[0]} and ${others.length - 1} others`;
+  $("#tgMenu .tg-menu").innerHTML = `
+    <div class="tg-confirm">
+      <h4 id="tgConfirmT">End this round for everyone?</h4>
+      <p>${esc(names)} won't be able to finish. Everyone's picks stay in Keeps.</p>
+      <button class="btn tg-endbtn" id="tgEndYes" type="button">End round</button>
+      <button class="tg-mcancel" type="button" data-close>Cancel</button>
+    </div>`;
+  $("#tgMenu .tg-menu").setAttribute("aria-labelledby", "tgConfirmT");
+  $("#tgMenu .tg-menu [data-close]").addEventListener("click", tgCloseMenu);
+  $("#tgEndYes").addEventListener("click", () => tgFinish(true));
+  $("#tgEndYes").focus();
+}
+async function tgFinish(host) {
+  if (host) {
+    const { error } = await db.rpc("meals_together_end", { p_code: tg.code, p_participant: tg.pid });
+    if (error) return toast("Couldn't end the round. Try again?");
+    tgPing(); // everyone else sees it ended right away
+  }
+  tgReset();
+  tgIntro();
+  toast(host ? "Round ended" : "You left the round");
 }
 // Forget the current round on this device and stop watching it.
 function tgReset() {
@@ -1949,9 +1975,8 @@ function tgNext() {
       <button class="act act-nope" id="tgNope" aria-label="Nope" title="Nope (←)">${icon("x")}</button>
       <button class="act act-like" id="tgLike" aria-label="Keep" title="Keep (→)">${icon("heart")}</button>
     </div>
-    <div class="tg-status" id="tgStatus"></div>
-    ${tgEndHTML()}`);
-  tgBindEnd();
+    <div class="tg-status" id="tgStatus"></div>`);
+  tgShowMore();
   tgStatus();
   tg.poll = setInterval(tgSync, 5000);
   $("#tgNope").addEventListener("click", (e) => tgThrow(false, e));
@@ -1968,7 +1993,7 @@ function tgArmIdle(extra = 0) { clearTimeout(tgIdleT); if ($("#tgDeck")) tgIdleT
 function tgIdleNudge() {
   const el = tgTop();
   if (!$("#tgDeck")) return;
-  if (!el || document.hidden || tg.paused || el.classList.contains("loading") || el.classList.contains("dragging")) return tgArmIdle();
+  if (!el || document.hidden || tg.paused || !$("#tgMenu").hidden || el.classList.contains("loading") || el.classList.contains("dragging")) return tgArmIdle();
   tgArmIdle(teach(el, 0) ? 1800 : 0);
 }
 function tgTeachFirst() {
@@ -2114,7 +2139,7 @@ function tgDrag(el) {
 function tgThrow(liked, evt) {
   const el = tgTop();
   const r = tgQueue()[0];
-  if (!el || !r || tg.busy || tg.paused) return;
+  if (!el || !r || tg.busy || tg.paused || !$("#tgMenu").hidden) return;
   el._stopTeach?.();
   el.classList.add("gone", "holding");
   const stamp = el.querySelector(liked ? ".stamp-like" : ".stamp-nope");
@@ -2183,8 +2208,7 @@ async function tgDone({ skipFetch = false } = {}) {
     ${state.user ? `<p class="tg-foot">Your picks from this round are saved to your account under Keeps.</p>` : `<p class="tg-foot">Your picks from this round are saved in Keeps on this device.</p>`}`);
   $("#tgShare").addEventListener("click", tgShareLink);
   $("#tgCopy").addEventListener("click", tgCopyLink);
-  $("#tgBody").insertAdjacentHTML("beforeend", tgEndHTML());
-  tgBindEnd();
+  tgShowMore();
   clearInterval(tg.poll);
   tg.poll = setInterval(tgSync, 4000);
 }
