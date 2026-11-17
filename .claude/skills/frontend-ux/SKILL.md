@@ -5,7 +5,13 @@ description: Required for every design or UI change to forks (forkslist.com): ne
 
 # forks front-end UX
 
-Andrew's rule for this project: every design request goes through this skill. It exists because UI that
+**Step 0: read Anthropic's `frontend-design` skill first** (`/mnt/skills/public/frontend-design/SKILL.md`;
+it may not appear in the skill list, so read the file directly). Follow its process (plan, review against
+the brief, build, critique with screenshots, restraint, writing guidance). This file adds forks' own rules
+on top. Where the two differ, forks' established visual identity below wins for existing surfaces, but note
+the difference to Andrew instead of copying a templated habit into new work.
+
+Andrew's rule for this project: every design request goes through both skills. It exists because UI that
 technically works can still be bad (example: the "End round and start over" link in Swipe with someone
 was a muted underlined text link that changed to red on first tap, sitting under the main swipe
 controls, with an unclear consequence). Work through the four steps in order.
