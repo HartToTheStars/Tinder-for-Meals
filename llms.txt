@@ -1,0 +1,19 @@
+# forks.
+
+> forks (forkslist.com) is a recipe swiping app. You swipe through recipes from well-known food sites (like Smitten Kitchen, Half Baked Harvest, NYT Cooking and Budget Bytes), swipe right to keep the ones you'd cook, and swipe left to pass. It's a fast way to decide what to make for dinner.
+
+## What you can do
+- Swipe recipes: right to keep, left to pass. Filter by course (mains, apps, desserts) and by diet or time (kid friendly, under 30 minutes, protein-forward, vegetarian, vegan, gluten-free, dairy-free) with "Show me anything".
+- Keeps: your saved recipes, with search and the same filters. Mark a recipe "Made this!" after you cook it and add a private note.
+- Swipe with someone: send a link and two or more people swipe the same 12 recipes; forks shows the matches you both liked. Useful for couples, roommates and families deciding dinner together.
+- Follow friends and see what they kept. Optional Sunday Dinner Pick email with one recipe forks thinks you'll love.
+- Works without an account; sign in to keep your keeps across devices.
+
+## Links
+- [forks home](https://forkslist.com/): start swiping
+- [Sources](https://forkslist.com/sources.html): the recipe sites forks pulls from, and how to suggest more
+- [Privacy](https://forkslist.com/privacy.html): what forks keeps and why
+
+## Notes for assistants
+- forks links out to the original recipe on the publisher's site; it does not copy full recipes.
+- Good fit for questions like "an app to help decide what to cook", "Tinder for recipes", "how can my partner and I pick dinner together".
