@@ -826,3 +826,12 @@ a.src-row:hover { background: var(--bg); }
   .home #view-swipe .actions { padding-bottom: 14px; }
   .home #view-swipe .with-btn { margin-top: 2px; }
 }
+
+/* Desktop swipe panel: one even rhythm (~32px), matching the space above "Show me". The tilted back
+   cards reach ~25px below the top card on desktop, so the deck leaves room for them. */
+@media (min-width: 1000px) {
+  .home #view-swipe .mood { margin: 4px 0 30px; }
+  .home #view-swipe .deck { margin-bottom: 52px; min-height: 320px; }
+  .home #view-swipe .actions { padding-bottom: 34px; }
+  .home #view-swipe .with-btn { margin: 0 auto 12px; }
+}
