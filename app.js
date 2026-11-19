@@ -1038,7 +1038,6 @@ document.addEventListener("scroll", () => closeKeepMenu(), true);
     eatClick = true;
     setTimeout(() => { eatClick = false; }, 400);
     const th = threshold(d.item);
-    if (e.type === "pointerup" && Math.abs(d.dx) > th) ls.set(KEEP_HINT, KEEP_HINT_MAX);
     if (e.type === "pointerup" && d.dx < -th) {
       d.item.classList.add("snapping");
       d.item.style.transform = "translateX(-110%)";
@@ -1109,18 +1108,15 @@ function confetti(x, y, n = 90, { power = 1, aim = -Math.PI / 2, spread = 1.1, s
 
 // First time on Keeps with something kept: the top row peeks right (Open) then left (Remove), once.
 // Phones: when you open Keeps, the first row slides right to show "Made this!", then left to show Remove.
-// Slow enough to read. Plays on the first few visits and stops once you've swiped a keep yourself.
-const KEEP_HINT = "forks:keepHint2", KEEP_HINT_MAX = 3;
+// Slow enough to read. Plays every time Keeps is opened (Andrew's call).
 let keepHintAnims = [];
 function stopKeepHint() { keepHintAnims.forEach((a) => a.cancel()); keepHintAnims = []; }
 function maybeHintKeepSwipe() {
-  if (keepHintAnims.length || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  stopKeepHint();
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   if (!matchMedia("(hover: none) and (pointer: coarse)").matches) return;
-  const seen = ls.get(KEEP_HINT, 0);
-  if (seen >= KEEP_HINT_MAX) return;
   const row = $("#list .swipe-row");
   if (!row || $("#view-kept").offsetParent === null) return;
-  ls.set(KEEP_HINT, seen + 1);
   const item = row.querySelector(".item"), open = row.querySelector(".swipe-open"), del = row.querySelector(".swipe-del");
   const R = Math.min(170, item.offsetWidth * 0.48), L = Math.min(130, item.offsetWidth * 0.38);
   const opts = { duration: 5200, delay: 450, easing: "linear" };
@@ -1775,7 +1771,7 @@ function show(view) {
   });
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("is-active", v.id === `view-${view}`));
   ls.set("forks:view", view);
-  if (view === "kept") requestAnimationFrame(maybeHintKeepSwipe);
+  if (view === "kept") requestAnimationFrame(maybeHintKeepSwipe); else stopKeepHint();
 }
 document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => show(t.dataset.view)));
 $("#logoBtn").addEventListener("click", () => { show("swipe"); window.scrollTo({ top: 0, behavior: "smooth" }); });
