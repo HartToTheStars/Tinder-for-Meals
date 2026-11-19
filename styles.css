@@ -881,3 +881,15 @@ a.src-row:hover { background: var(--bg); }
 .foot-links { display: inline-flex; gap: 14px; margin-left: 14px; }
 .foot-links a { color: inherit; }
 @media (max-width: 520px) { .foot-links { display: flex; justify-content: center; margin: 6px 0 0; } }
+
+/* Desktop: the card grows with the window. The deck takes all the height the stage can give it, and its width
+   follows the height (3:4) once the window is tall enough, so taller windows get a bigger photo instead of
+   empty space. Type scales with the card. */
+@media (min-width: 1000px) {
+  .home .stage { width: 100%; }
+  /* 435px is everything above and below the deck (header, "Show me", buttons). Never narrower than before (540px). */
+  .home #view-swipe .deck { flex: 1 1 auto; max-height: none; min-height: 320px; width: clamp(min(540px, 100%), (100dvh - 435px) * .75, calc(100% - 140px)); align-self: center; container-type: size; }
+  .home #view-swipe .card h2 { font-size: clamp(30px, 6.4cqw, 50px); }
+  .home #view-swipe .card p { font-size: clamp(15px, 2.8cqw, 18px); }
+  .home #view-swipe .card-body { padding: clamp(24px, 5.2cqw, 40px); }
+}
