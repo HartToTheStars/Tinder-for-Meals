@@ -425,7 +425,7 @@ function renderMood() {
     ? `${word("diet", shown.join(" "), "diet")} ${word("course", noun, "course")}`
     : word("all", [...shown, noun].join(" "), "all");
   const extra = more ? `, ${word("diet", `+${more}`, "more")}` : "";
-  $("#mood").innerHTML = `Show me ${parts}${extra}.`;
+  $("#mood").innerHTML = `Show me ${parts}${extra}<span class="mood-dot">.</span>`;
   $("#moodReset").hidden = !(state.cat || state.want.size);
 }
 function openMood(mode) {

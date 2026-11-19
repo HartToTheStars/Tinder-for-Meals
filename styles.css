@@ -815,3 +815,14 @@ a.src-row:hover { background: var(--bg); }
 .mp-reset { min-height: 46px; padding: 0 8px; font: 600 14px Inter, system-ui, sans-serif; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .mp-done { flex: 1; }
 @media (prefers-reduced-motion: reduce) { .mood-pop, .mood-w .flip { animation: none; } }
+
+/* Phone swipe screen: one even vertical rhythm (~20px between blocks, measured from what you see,
+   including the tilted cards behind the top one, which reach about 18px below it). */
+.mood-dot { margin-left: -3px; }
+@media (max-width: 999px) {
+  .home .top { padding-bottom: 14px; }
+  .home #view-swipe .mood { margin: 4px 0 20px; }
+  .home #view-swipe .deck { margin-bottom: 38px; }
+  .home #view-swipe .actions { padding-bottom: 14px; }
+  .home #view-swipe .with-btn { margin-top: 2px; }
+}
