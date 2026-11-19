@@ -877,10 +877,20 @@ a.src-row:hover { background: var(--bg); }
 .made-priv { display: block; text-align: left; margin-top: 8px; font-size: 12px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .keep-menu, .made-icon { animation: none; } }
 
-/* Footer links to the crawlable recipe pages */
-.foot-links { display: inline-flex; gap: 14px; margin-left: 14px; }
+/* Footer: "Made with ♡ for Kelly, from these sources | Browse recipes | Decide dinner together" on one line on
+   desktop. Phones put the two links on their own line, just below the fold on the Swipe screen (a short scroll). */
+.foot { flex-wrap: wrap; }
+.foot-love { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.foot-links { display: inline-flex; align-items: center; white-space: nowrap; }
 .foot-links a { color: inherit; }
-@media (max-width: 520px) { .foot-links { display: flex; justify-content: center; margin: 6px 0 0; } }
+.foot-sep { margin: 0 10px; opacity: .5; }
+@media (max-width: 999px) {
+  .foot-links { flex-basis: 100%; justify-content: center; margin-top: 6px; }
+  .foot-sep-lead { display: none; }
+  body.home:has(#view-swipe.is-active) { height: auto; overflow: visible; }
+  .home:has(#view-swipe.is-active) .foot { position: relative; }
+  .home:has(#view-swipe.is-active) .foot-links { position: absolute; left: 0; right: 0; top: 100%; margin: 0; padding: 2px 0 calc(22px + env(safe-area-inset-bottom)); }
+}
 
 /* Desktop: the card grows with the window. The deck takes all the height the stage can give it, and its width
    follows the height (3:4) once the window is tall enough, so taller windows get a bigger photo instead of
