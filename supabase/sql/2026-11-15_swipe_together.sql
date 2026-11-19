@@ -25,3 +25,6 @@
 -- Applied as migration meals_together_end (2026-11-16):
 -- meals_together.ended_at; meals_together_end(p_code, p_participant) lets the host end a round.
 -- Ended rounds refuse votes and timers; meals_together_get adds 'ended' and reports waiting = 0.
+
+-- Applied as migration meals_together_idle (2026-11-19): meals_together_get adds 'idle_minutes', minutes
+-- since anyone created the round, swiped, or started a timer. The app starts a fresh round at 120.
