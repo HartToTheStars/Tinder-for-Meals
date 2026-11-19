@@ -1734,13 +1734,28 @@ function tgIntro() {
     if (guest) return tgSwipe();
     const btn = e.submitter || $(".tg-go");
     btn.disabled = true; btn.textContent = "Setting the table…";
-    const pid = crypto.randomUUID();
-    const { data: code, error } = await db.rpc("meals_together_create", { p_participant: pid, p_name: n });
-    if (error || !code) { btn.disabled = false; btn.textContent = "Start a round"; return toast("Couldn't start a round. Try again?"); }
-    ls.set(`forks:tg:${code}`, pid);
-    ls.set(TG_ACTIVE, code);
-    await openTogether(code, { fresh: true });
+    if (!(await tgCreate(n))) { btn.disabled = false; btn.textContent = "Start a round"; }
   });
+}
+// Start a new round as `name` and show its invite screen. Returns false if it couldn't be created.
+async function tgCreate(name) {
+  const pid = crypto.randomUUID();
+  const { data: code, error } = await db.rpc("meals_together_create", { p_participant: pid, p_name: name });
+  if (error || !code) { toast("Couldn't start a round. Try again?"); return false; }
+  ls.set(`forks:tg:${code}`, pid);
+  ls.set(TG_ACTIVE, code);
+  await openTogether(code, { fresh: true });
+  return true;
+}
+// A round nobody has touched for 2 hours is over: tapping Swipe with someone starts a fresh one.
+const TG_IDLE_MIN = 120;
+const tgStale = (d) => d && !d.ended && Number(d.idle_minutes) >= TG_IDLE_MIN;
+async function tgStartFresh(d) {
+  if (d?.is_host) { try { await db.rpc("meals_together_end", { p_code: tg.code, p_participant: tg.pid }); } catch { /* best effort */ } }
+  tgReset();
+  const name = tgName();
+  if (name && (await tgCreate(name))) return toast("Started a fresh round");
+  tgIntro();
 }
 
 // Keeping the round fresh. Everyone in a round pings the others over Supabase Realtime after each swipe,
@@ -1787,10 +1802,13 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && tg
 addEventListener("pageshow", () => { if (tg.code) tgSync(); });
 setInterval(() => { if (tg.code && $("#together").hidden && ls.get(TG_ACTIVE, null) === tg.code && !document.hidden) tgSync(); }, 20000);
 // Back from earlier with a round still open? Watch it, and show the matches if they're already in.
-function tgResumeInBackground() {
+async function tgResumeInBackground() {
   const code = ls.get(TG_ACTIVE, null);
   if (!code || tg.code) return;
   tg.code = code; tg.pid = tgPid(code);
+  // Idle for 2+ hours: forget it quietly (the next tap on Swipe with someone starts fresh).
+  const d = await tgFetch();
+  if (!d || tgStale(d)) { tg.code = null; tg.pid = null; return; }
   tgSubscribe(code);
   tgSync();
 }
@@ -1812,6 +1830,7 @@ async function openTogether(code, { fresh = false, resume = false } = {}) {
     return toast("That round has ended. Start your own!");
   }
   tg.data = data;
+  if (resume && tgStale(data)) return tgStartFresh(data);
   if (data.ended) {
     if (data.is_host) { tgReset(); return tgIntro(); }
     return tgEnded();

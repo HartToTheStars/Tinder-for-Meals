@@ -16,7 +16,8 @@ under supabase/sql), hosted on here.now.
 - **Deploys default to production** (`python3 tools/publish.py --prod`). Use staging
   (`python3 tools/publish.py`, https://bright-jasper-8752.here.now) only when Andrew asks for staging,
   or for a feature that already lives on staging only.
-- Features still staging-only: Swipe with someone, "Show me anything" filters (replaced the Filters link). Never ship them to
-  production without Andrew's go. A production hotfix must be built from what's live, without them.
+- Staging-only features: none right now (Swipe with someone and "Show me anything" shipped to production
+  on Nov 19). When a feature is staging-only, never ship it to production without Andrew's go, and build
+  any production hotfix from what's live, without it.
 - Bump the `?v=` cache-busting query on app.js / styles.css in index.html with every change.
 - No em dashes in user-facing copy.
