@@ -27,6 +27,9 @@ const TAGS = [
   ["vegetarian", "carrot", "Vegetarian"], ["vegan", "sprout", "Vegan"], ["gluten-free", "wheat-off", "Gluten-free"], ["dairy-free", "milk-off", "Dairy-free"],
 ];
 const TAG = Object.fromEntries(TAGS.map(([k, i, l]) => [k, { i, l }]));
+// Keeps-only filter: recipes you've marked as made. Shown first, once you've made something.
+const MADE_TAG = ["made", "chef-hat", "Made it"];
+const isTag = (t) => !!TAG[t] || t === "made";
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 // ---------- helpers ----------
@@ -202,7 +205,7 @@ function renderTagRow(el, selected, onToggle, only = el._only ?? null) {
   }
   requestAnimationFrame(() => el._edge());
   const tick = `<span class="tick">${icon("check")}</span>`;
-  const shown = TAGS.filter(([k]) => !only || only.has(k) || selected.has(k));
+  const shown = [...(el._extra || []), ...TAGS].filter(([k]) => !only || only.has(k) || selected.has(k));
   el.hidden = !shown.length;
   el.innerHTML = shown.map(([k, ic, l]) =>
     `<button class="tag ${selected.has(k) ? "is-on" : ""}${k === el._just ? " just" : ""}" data-tag="${k}" aria-pressed="${selected.has(k)}">${tick}${icon(ic, "ti")}${l}</button>`).join("") +
@@ -220,7 +223,7 @@ function renderTagRow(el, selected, onToggle, only = el._only ?? null) {
     onToggle();
   };
 }
-const loadSet = (k) => new Set((ls.get(k, []) || []).filter((t) => TAG[t]));
+const loadSet = (k, ok = (t) => TAG[t]) => new Set((ls.get(k, []) || []).filter(ok));
 const saveSet = (k, set) => ls.set(k, [...set]);
 
 // ---------- deck ----------
@@ -755,6 +758,8 @@ function renderKept() {
   $("#keptCats").hidden = !has;
   $("#keptCats").style.gridTemplateColumns = `repeat(${Math.max(shownCats, 1)}, 1fr)`;
   const avail = new Set(state.kept.flatMap((r) => r.tags || []).filter((t) => TAG[t]));
+  if (state.kept.some((r) => r.made_count)) avail.add("made");
+  $("#keptTags")._extra = [MADE_TAG];
   const sig = [...avail].sort().join() + "|" + [...state.keptWant].sort().join();
   if ($("#keptTags")._sig !== sig) {
     $("#keptTags")._sig = sig;
@@ -763,7 +768,7 @@ function renderKept() {
   // Search lives behind the icon next to "Your keeps."; it stays open while there's a query.
   $("#searchToggle").hidden = !has;
   $(".search").hidden = !has || !(state.searchOpen || state.query);
-  const inCat = (r) => (!state.keptCat || (r.category || "main") === state.keptCat) && [...state.keptWant].every((t) => (r.tags || []).includes(t));
+  const inCat = (r) => (!state.keptCat || (r.category || "main") === state.keptCat) && [...state.keptWant].every((t) => (t === "made" ? r.made_count > 0 : (r.tags || []).includes(t)));
   // No source-site filter on Keeps (course and diet filters are enough).
   state.source = "All";
   $("#chips").innerHTML = "";
@@ -806,13 +811,15 @@ function renderKept() {
     ? "No keeps yet. Go swipe right on something delicious."
     : state.query
       ? "No keeps match that. Try another word."
+      : state.keptWant.has("made")
+        ? "Nothing here you've made yet. Swipe right on a keep once you cook it."
       : state.keptWant.size
         ? `No ${[...state.keptWant].map((t) => TAG[t].l.toLowerCase()).join(" + ")} ${label} keeps yet.`
         : `No ${label} keeps yet. Go swipe some!`;
   const go = $("#emptyGo");
-  go.hidden = !!(state.kept.length && state.query);
+  go.hidden = !!(state.kept.length && (state.query || state.keptWant.has("made")));
   go.textContent = state.kept.length && (state.keptCat || state.keptWant.size)
-    ? `Swipe ${state.keptWant.size ? [...state.keptWant].map((t) => TAG[t].l.toLowerCase()).join(" + ") + " " : ""}${state.keptCat ? label : "these"}`
+    ? `Swipe ${state.keptWant.size ? [...state.keptWant].filter((t) => TAG[t]).map((t) => TAG[t].l.toLowerCase()).join(" + ") + " " : ""}${state.keptCat ? label : "these"}`
     : "Start swiping";
 }
 
@@ -1134,7 +1141,7 @@ function maybeHintKeepSwipe() {
 $("#list").addEventListener("pointerdown", stopKeepHint, true);
 $("#emptyGo").addEventListener("click", () => {
   if (state.kept.length && state.keptWant.size) {
-    state.want = new Set(state.keptWant);
+    state.want = new Set([...state.keptWant].filter((t) => TAG[t]));
     saveSet("forks:want", state.want);
     renderTagRow($("#tags"), state.want, onWantChange);
   }
@@ -1831,7 +1838,7 @@ if (kc in CATS) state.keptCat = kc;
 renderCats($("#cats"), state.cat, false);
 renderCats($("#keptCats"), state.keptCat, true);
 state.want = loadSet("forks:want");
-state.keptWant = loadSet("forks:keptWant");
+state.keptWant = loadSet("forks:keptWant", isTag);
 renderTagRow($("#tags"), state.want, onWantChange);
 renderMood();
 function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", state.keptWant); renderKept(); }
