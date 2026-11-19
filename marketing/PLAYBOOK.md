@@ -106,7 +106,8 @@ The site already has recipe pages, collections, /what-to-make-for-dinner/, /comp
 - Build a /partners/ page with live audience numbers and the two placements above.
 - **Gate:** start outreach when the site has 5,000 monthly pageviews or 300 Sunday subscribers,
   whichever comes first. Before the gate, research only. Pitching with no audience burns the list.
-- Outreach emails are Gmail drafts with Andrew's signature, written in his voice. **Andrew** sends them.
+- Outreach emails are Gmail drafts in the andrew@timeboss.us account, sent from andrew.r.hartman@gmail.com,
+  with the "andrew.r.hartman@gmail.com - Forks" signature, written in his voice. **Andrew** sends them.
 - Pricing, contracts and invoicing: **Andrew** decides and signs. Claude drafts the terms.
 
 ## Who decides what
