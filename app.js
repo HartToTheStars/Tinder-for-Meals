@@ -943,7 +943,8 @@ function openKeepMenu(btn) {
   el.innerHTML = `
     <button type="button" role="menuitem" data-a="share">${icon("share")}Share</button>
     <button type="button" role="menuitem" class="km-made" data-a="made">${icon("chef-hat")}${r.made_count ? "Made it again" : "Made this!"}</button>
-    ${r.made_count ? `<button type="button" role="menuitem" data-a="note">${icon("pencil")}${r.made_note ? "Edit note" : "Add a note"}</button>` : ""}
+    ${r.made_count ? `<button type="button" role="menuitem" data-a="note">${icon("pencil")}${r.made_note ? "Edit note" : "Add a note"}</button>
+    <button type="button" role="menuitem" data-a="unmade">${icon("rotate-ccw")}Unmark as made</button>` : ""}
     <hr />
     <button type="button" role="menuitem" class="km-del" data-a="del">${icon("trash-2")}Delete</button>`;
   document.body.append(el);
@@ -966,6 +967,10 @@ function openKeepMenu(btn) {
       buzz([12, 50, 18]);
       setTimeout(() => markMade(r), 380);
     } else if (a === "note") editMadeNote(r);
+    else if (a === "unmade") {
+      const before = madeOf(r);
+      setMade(r, { made_at: null, made_count: 0, made_note: null }).then((ok) => ok && toast("Unmarked as made", { label: "Undo", run: () => setMade(r, before) }));
+    }
     else if (a === "del") removeKeep(row);
   });
   el.addEventListener("keydown", (e) => {
