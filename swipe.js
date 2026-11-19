@@ -34,76 +34,167 @@
     x: '<path d="M18 6 6 18M6 6l12 12"/>',
     bookmark: '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
     mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
-    check: '<path d="M20 6 9 17l-5-5"/>'
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+    ext: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
   };
   var svg = function (n) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[n] + "</svg>"; };
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
   var $ = function (sel, root) { return (root || sec).querySelector(sel); };
 
   var stage = $(".sw-stage"), sub = $(".sw-sub"), pill = $(".sw-pill"), acts = $(".sw-acts"), done = $(".sw-done");
-  var i = 0, busy = false, keptHere = [], asked = false, lastAct = Date.now();
+  var btnUndo = $(".sw-act-undo"), btnNope = $(".sw-act-nope"), btnLike = $(".sw-act-like"), btnOpen = $(".sw-act-open");
+  var i = 0, busy = false, keptHere = [], history = [], asked = false, lastAct = Date.now();
+  var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
 
-  // ---------- cards ----------
+  // ---------- cards: the homepage's own card (photo, full-card KEEP / NOPE stamps, source pill, tag icons) ----------
   function cardHTML(r) {
+    var tags = (r.ti || []).map(function (t) { return '<span title="' + esc(t[0]) + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + t[1] + "</svg></span>"; }).join("");
     return '<img src="' + esc(r.image) + '" alt="" referrerpolicy="no-referrer" draggable="false">' +
-      '<span class="sw-stamp sw-keep">KEEP</span><span class="sw-stamp sw-nope">NOPE</span>' +
-      '<div class="sw-body"><span class="sw-src">' + esc(r.source) + "</span><h3>" + esc(r.title) + "</h3></div>";
+      '<div class="sw-stamp sw-stamp-like"><span>KEEP</span></div><div class="sw-stamp sw-stamp-nope"><span>NOPE</span></div>' +
+      '<div class="sw-cbody"><span class="sw-source">' + esc(r.source) + "</span>" + (tags ? '<span class="sw-ctags">' + tags + "</span>" : "") +
+      "<h3>" + esc(r.title) + "</h3>" + (r.description ? "<p>" + esc(r.description) + "</p>" : "") + "</div>";
   }
+  // Rebuild the stack under any card that's still being thrown (that one keeps flying on top).
   function render() {
-    stage.innerHTML = "";
-    for (var k = Math.min(i + 1, deck.length - 1); k >= i; k--) {
+    Array.prototype.forEach.call(stage.querySelectorAll(".sw-card:not(.gone)"), function (c) { c.remove(); });
+    for (var d = 2; d >= 0; d--) {
+      var k = i + d;
+      if (k >= deck.length) continue;
       var el = document.createElement("article");
-      el.className = "sw-card" + (k === i ? " is-top" : " is-next");
+      el.className = "sw-card";
+      el.setAttribute("data-depth", d);
       el.innerHTML = cardHTML(deck[k]);
       stage.appendChild(el);
+      if (d === 0) bindDrag(el);
     }
-    sub.textContent = "Right to keep, left to pass. " + (i + 1) + " of " + deck.length + ".";
-    var top = topCard();
-    if (top) bindDrag(top);
+    sub.textContent = "Right to keep, left to pass. " + Math.min(i + 1, deck.length) + " of " + deck.length + ".";
+    btnUndo.disabled = history.length === 0;
+    if (deck[i]) btnOpen.href = deck[i].url;
   }
-  function topCard() { return stage.querySelector(".sw-card.is-top"); }
-  function stamps(el, x) {
-    var k = Math.max(0, Math.min(1, x / 90)), n = Math.max(0, Math.min(1, -x / 90));
-    el.querySelector(".sw-keep").style.opacity = k;
-    el.querySelector(".sw-nope").style.opacity = n;
-  }
+  function topCard() { return stage.querySelector('.sw-card[data-depth="0"]:not(.gone)'); }
 
-  // ---------- swipes ----------
+  // ---------- storage ----------
   function slim(r) { return { id: r.id, url: r.url, title: r.title, description: r.description, image: r.image, source: r.source, category: r.category, tags: r.tags }; }
+  var fresh = function () { return signedIn && auth.expires_at && auth.expires_at * 1000 > Date.now() + 30000; };
+  var rest = function (method, q, body) {
+    return fetch(SB + "/rest/v1/meals_user_swipes" + q, {
+      method: method, body: body ? JSON.stringify(body) : undefined,
+      headers: { apikey: KEY, Authorization: "Bearer " + auth.access_token, "content-type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }
+    }).catch(function () {});
+  };
+  function loadGuest() { var g = ls.get("forks:guest", null) || guest; g.swipes = g.swipes || {}; g.kept = g.kept || []; return (guest = g); }
   function record(r, liked) {
-    var fresh = auth && auth.expires_at && auth.expires_at * 1000 > Date.now() + 30000;
-    if (signedIn && fresh) {
-      fetch(SB + "/rest/v1/meals_user_swipes?on_conflict=user_id,recipe_id", {
-        method: "POST",
-        headers: { apikey: KEY, Authorization: "Bearer " + auth.access_token, "content-type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
-        body: JSON.stringify({ user_id: auth.user.id, recipe_id: r.id, liked: liked, swiped_at: new Date().toISOString() })
-      }).catch(function () {});
-      return;
-    }
-    guest = ls.get("forks:guest", null) || guest;
-    if (!guest.swipes) guest.swipes = {};
-    if (!guest.kept) guest.kept = [];
+    if (fresh()) { rest("POST", "?on_conflict=user_id,recipe_id", { user_id: auth.user.id, recipe_id: r.id, liked: liked, swiped_at: new Date().toISOString() }); return; }
+    loadGuest();
     guest.swipes[r.id] = liked;
     if (liked) guest.kept = [slim(r)].concat(guest.kept.filter(function (x) { return x.id !== r.id; }));
     ls.set("forks:guest", guest);
   }
-  function go(liked) {
+  function unrecord(r) {
+    if (fresh()) { rest("DELETE", "?user_id=eq." + auth.user.id + "&recipe_id=eq." + r.id); return; }
+    loadGuest();
+    delete guest.swipes[r.id];
+    guest.kept = guest.kept.filter(function (x) { return x.id !== r.id; });
+    ls.set("forks:guest", guest);
+  }
+
+  // ---------- the homepage's swipe: lean, slam the stamp, throw ----------
+  function hearts(x, y) {
+    var colors = ["#e8553e", "#3f9b6b", "#e9a23b", "#e8553e"];
+    for (var n = 0; n < 9; n++) {
+      var h = document.createElement("span");
+      h.className = "sw-heart";
+      h.innerHTML = svg("heart");
+      h.style.color = colors[n % colors.length];
+      h.style.left = x + (Math.random() * 60 - 30) + "px";
+      h.style.top = y + (Math.random() * 30 - 15) + "px";
+      h.style.setProperty("--dx", Math.random() * 140 - 70 + "px");
+      h.style.setProperty("--rot", Math.random() * 80 - 40 + "deg");
+      h.style.animationDelay = n * 35 + "ms";
+      document.body.appendChild(h);
+      setTimeout(function (el) { return function () { el.remove(); }; }(h), 1400);
+    }
+  }
+  function pulse(btn) { btn.classList.remove("sw-pulse"); void btn.offsetWidth; btn.classList.add("sw-pulse"); }
+  async function stampSlam(el, stamp, s, f) {
+    var dragged = !!f;
+    f = f || { dx: 0, dy: 0 };
+    el.style.transition = "none";
+    var from = "translate(" + f.dx + "px, " + f.dy + "px) rotate(" + f.dx / 14 + "deg)";
+    var shown = Number(stamp.style.opacity) || 0;
+    if (reduce) {
+      stamp.style.opacity = 1;
+      await el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, delay: 120, fill: "forwards" }).finished;
+      return;
+    }
+    var span = stamp.querySelector("span"), rot = s > 0 ? -10 : 10;
+    var lx = dragged ? f.dx + s * 12 : s * 54, ly = dragged ? f.dy : 0, lr = dragged ? f.dx / 14 + s * 1.5 : s * 5;
+    var lean = "translate(" + lx + "px, " + ly + "px) rotate(" + lr + "deg)";
+    el.animate([{ transform: from }, { transform: lean }], { duration: dragged ? 90 : 140, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+    stamp.style.opacity = 1;
+    if (!dragged) stamp.animate([{ opacity: shown }, { opacity: 1 }], { duration: 90, fill: "forwards" });
+    await span.animate(dragged && shown > 0.4 ? [
+      { transform: "scale(1) rotate(" + rot + "deg)" },
+      { transform: "scale(1.28) rotate(" + rot * 1.4 + "deg)", offset: 0.35 },
+      { transform: "scale(.94) rotate(" + rot + "deg)", offset: 0.7 },
+      { transform: "scale(1) rotate(" + rot + "deg)" }
+    ] : [
+      { transform: "scale(2.4) rotate(" + rot * 2.2 + "deg)", opacity: 0 },
+      { transform: "scale(.86) rotate(" + rot + "deg)", opacity: 1, offset: 0.55 },
+      { transform: "scale(1.06) rotate(" + rot + "deg)", offset: 0.78 },
+      { transform: "scale(1) rotate(" + rot + "deg)", opacity: 1 }
+    ], { duration: dragged ? 240 : 300, easing: "cubic-bezier(.2,.7,.3,1)", fill: "forwards" }).finished;
+    try { navigator.vibrate && navigator.vibrate(s > 0 ? [14] : [8, 40, 8]); } catch (e) {}
+    await el.animate([
+      { transform: lean }, { transform: lean + " translate(" + -s * 5 + "px, 2px)" },
+      { transform: lean + " translate(" + s * 3 + "px, -1px)" }, { transform: lean }
+    ], { duration: 140, fill: "forwards" }).finished;
+    await sleep(dragged ? 90 : 150);
+    var w = window.innerWidth, cw = el.offsetWidth;
+    var tx = s * (w + cw * 0.9), ty = ly - 60, r1 = lr + s * 40;
+    await el.animate([
+      { transform: lean, opacity: 1 },
+      { transform: "translate(" + (lx + (tx - lx) * 0.55) + "px, " + (ly + (ty - ly) * 0.55) + "px) rotate(" + (lr + (r1 - lr) * 0.6) + "deg)", opacity: 1, offset: 0.5 },
+      { transform: "translate(" + tx + "px, " + ty + "px) rotate(" + r1 + "deg)", opacity: 1, offset: 0.92 },
+      { transform: "translate(" + tx * 1.04 + "px, " + ty + "px) rotate(" + r1 + "deg)", opacity: 0 }
+    ], { duration: dragged ? 420 : 480, easing: "cubic-bezier(.22,.61,.36,1)", fill: "forwards" }).finished;
+  }
+  function go(liked, evt) {
     var el = topCard();
-    if (busy || !el) return;
+    if (busy || !el || sheetOpen()) return;
     busy = true; lastAct = Date.now();
-    var r = deck[i];
-    stamps(el, liked ? 120 : -120);
-    el.style.transition = reduce ? "none" : "transform .38s cubic-bezier(.2,.8,.2,1), opacity .38s";
-    el.style.transform = "translate(" + (liked ? 140 : -140) + "%, 0) rotate(" + (liked ? 18 : -18) + "deg)";
-    el.style.opacity = "0";
+    if (el._stopTeach) el._stopTeach();
+    var r = deck[i], s = liked ? 1 : -1;
+    el.classList.add("gone");
     record(r, liked);
+    history.push({ r: r, liked: liked });
     if (liked) keptHere.push(r);
+    var btn = liked ? btnLike : btnNope;
+    pulse(btn);
+    if (liked) { var rc = btn.getBoundingClientRect(); hearts(evt && evt.clientX != null ? evt.clientX : rc.left + rc.width / 2, evt && evt.clientY != null ? evt.clientY : rc.top); }
+    var last = i + 1 >= deck.length;
+    stampSlam(el, el.querySelector(liked ? ".sw-stamp-like" : ".sw-stamp-nope"), s, evt && evt.pointerType ? el._fling : null)
+      .catch(function () {}).then(function () {
+        el.remove();
+        if (last) finish();
+      });
+    // The stamp lands before the next card moves up, like the homepage.
     setTimeout(function () {
       i++; busy = false;
       updatePill();
-      if (i >= deck.length) finish(); else render();
-      if (liked && !asked && !signedIn && !ls.get("forks:browsing", false)) { asked = true; openSheet("save"); }
-    }, reduce ? 60 : 380);
+      if (!last) render(); else { btnUndo.disabled = false; }
+      if (liked && !asked && !signedIn && !ls.get("forks:browsing", false)) { asked = true; setTimeout(function () { openSheet("save"); }, last ? 700 : 350); }
+    }, reduce ? 60 : 640);
+  }
+  function undo() {
+    if (busy || !history.length) return;
+    var h = history.pop();
+    unrecord(h.r);
+    keptHere = keptHere.filter(function (x) { return x.id !== h.r.id; });
+    i--;
+    done.hidden = true; stage.hidden = false; acts.hidden = false;
+    render(); updatePill(); lastAct = Date.now();
   }
   function finish() {
     stage.hidden = true; acts.hidden = true;
@@ -116,52 +207,70 @@
     $(".sw-see").hidden = !n;
     done.hidden = false;
   }
-  $(".sw-btn-keep").addEventListener("click", function () { go(true); });
-  $(".sw-btn-nope").addEventListener("click", function () { go(false); });
+  btnUndo.innerHTML = svg("undo"); btnNope.innerHTML = svg("x"); btnLike.innerHTML = svg("heart"); btnOpen.innerHTML = svg("ext");
+  btnLike.addEventListener("click", function () { go(true); });
+  btnNope.addEventListener("click", function () { go(false); });
+  btnUndo.addEventListener("click", undo);
   sec.addEventListener("keydown", function (e) {
     if (e.target.matches("input, textarea")) return;
     if (e.key === "ArrowRight") { e.preventDefault(); go(true); }
     if (e.key === "ArrowLeft") { e.preventDefault(); go(false); }
+    if (e.key === "Backspace") { e.preventDefault(); undo(); }
   });
 
-  // ---------- drag, like the app ----------
+  // ---------- drag: the homepage's feel (follows the finger, stamp fades in by distance) ----------
   function bindDrag(el) {
-    var x0 = 0, dx = 0, id = null;
+    var sx = 0, sy = 0, dx = 0, dy = 0, down = false;
+    var like = el.querySelector(".sw-stamp-like"), nope = el.querySelector(".sw-stamp-nope");
     el.addEventListener("pointerdown", function (e) {
-      if (busy) return;
-      id = e.pointerId; x0 = e.clientX; dx = 0; lastAct = Date.now();
-      el.setPointerCapture(id); el.style.transition = "none"; el.classList.add("is-drag");
+      if (busy || el !== topCard()) return;
+      down = true; sx = e.clientX; sy = e.clientY; dx = dy = 0; lastAct = Date.now();
+      el.setPointerCapture(e.pointerId);
+      el.classList.add("dragging");
     });
     el.addEventListener("pointermove", function (e) {
-      if (e.pointerId !== id) return;
-      dx = e.clientX - x0;
-      el.style.transform = "translate(" + dx + "px, 0) rotate(" + dx / 18 + "deg)";
-      stamps(el, dx);
+      if (!down) return;
+      dx = e.clientX - sx; dy = e.clientY - sy;
+      el.style.transform = "translate(" + dx + "px, " + dy * 0.4 + "px) rotate(" + dx / 14 + "deg)";
+      like.style.opacity = Math.max(0, Math.min(1, dx / 90));
+      nope.style.opacity = Math.max(0, Math.min(1, -dx / 90));
     });
     var end = function (e) {
-      if (e.pointerId !== id) return;
-      id = null; el.classList.remove("is-drag");
-      if (Math.abs(dx) > 90) return go(dx > 0);
-      el.style.transition = "transform .25s cubic-bezier(.2,.8,.2,1)";
-      el.style.transform = ""; stamps(el, 0);
+      if (!down) return;
+      down = false;
+      el.classList.remove("dragging");
+      var threshold = Math.min(110, el.offsetWidth * 0.28);
+      el._fling = { dx: dx, dy: dy * 0.4 };
+      if (dx > threshold) go(true, e);
+      else if (dx < -threshold) go(false, e);
+      else { el.style.transform = ""; like.style.opacity = nope.style.opacity = 0; }
     };
     el.addEventListener("pointerup", end);
     el.addEventListener("pointercancel", end);
   }
 
-  // ---------- teach: lean KEEP, then NOPE, when the deck comes into view and after 7 idle seconds ----------
+  // ---------- teach: the homepage's lean (KEEP, then NOPE, the stamp washing over the card) ----------
   var visible = false;
-  function teach() {
-    var el = topCard();
-    if (reduce || busy || !el || !el.animate || sheetOpen()) return;
-    if (el.getAnimations && el.getAnimations().length) return;
+  function teach(el, delay) {
+    if (!el || el._teaching || reduce || busy || !el.animate || sheetOpen()) return false;
+    el._teaching = true;
+    var like = el.querySelector(".sw-stamp-like"), nope = el.querySelector(".sw-stamp-nope");
     var lean = function (x, r) { return "translate(" + x + "px, 0) rotate(" + r + "deg)"; };
-    el.animate([{ transform: lean(0, 0) }, { transform: lean(36, 3), offset: .22 }, { transform: lean(36, 3), offset: .38 },
-      { transform: lean(0, 0), offset: .5 }, { transform: lean(-36, -3), offset: .72 }, { transform: lean(-36, -3), offset: .88 }, { transform: lean(0, 0) }],
-      { duration: 1900, easing: "ease-in-out" });
-    var o = function (sel, offs) { el.querySelector(sel).animate(offs, { duration: 1900 }); };
-    o(".sw-keep", [{ opacity: 0 }, { opacity: .85, offset: .22 }, { opacity: .85, offset: .38 }, { opacity: 0, offset: .5 }, { opacity: 0 }]);
-    o(".sw-nope", [{ opacity: 0 }, { opacity: 0, offset: .5 }, { opacity: .85, offset: .72 }, { opacity: .85, offset: .88 }, { opacity: 0 }]);
+    var card = el.animate([
+      { transform: lean(0, 0), offset: 0 }, { transform: lean(36, 3), offset: 0.22 }, { transform: lean(36, 3), offset: 0.38 },
+      { transform: lean(-36, -3), offset: 0.62 }, { transform: lean(-36, -3), offset: 0.78 }, { transform: lean(0, 0), offset: 1 }
+    ], { duration: 1800, delay: delay, easing: "cubic-bezier(.45,0,.25,1)", fill: "forwards" });
+    var fade = function (stamp, a, b, c, d) {
+      return stamp.animate([{ opacity: 0, offset: 0 }, { opacity: 0, offset: a }, { opacity: 0.9, offset: b },
+        { opacity: 0.9, offset: c }, { opacity: 0, offset: d }, { opacity: 0, offset: 1 }], { duration: 1800, delay: delay, fill: "forwards" });
+    };
+    var anims = [card, fade(like, 0.05, 0.22, 0.38, 0.5), fade(nope, 0.5, 0.62, 0.78, 0.92)];
+    var stop = function () { anims.forEach(function (a) { a.cancel(); }); el._teaching = false; };
+    card.finished.then(stop).catch(function () {});
+    el.addEventListener("pointerdown", stop, { once: true });
+    document.addEventListener("keydown", stop, { once: true });
+    el._stopTeach = stop;
+    return true;
   }
   // Most of the deck on screen counts as "in view". A plain position check, so it works in every browser.
   var taught = false;
@@ -169,13 +278,13 @@
     if (stage.hidden) { visible = false; return; }
     var r = stage.getBoundingClientRect(), h = window.innerHeight || document.documentElement.clientHeight;
     visible = r.top < h * 0.85 && r.bottom > h * 0.35;
-    if (visible && !taught) { taught = true; lastAct = Date.now(); setTimeout(teach, 600); }
+    if (visible && !taught) { taught = true; lastAct = Date.now(); teach(topCard(), 500); }
   }
   addEventListener("scroll", checkView, { passive: true });
   addEventListener("resize", checkView, { passive: true });
   setInterval(function () {
     checkView();
-    if (visible && !document.hidden && Date.now() - lastAct > 7000) { lastAct = Date.now(); teach(); }
+    if (visible && !document.hidden && Date.now() - lastAct > 7000) { lastAct = Date.now() + 1800; teach(topCard(), 0); }
   }, 1000);
   ["pointerdown", "keydown"].forEach(function (t) { addEventListener(t, function () { lastAct = Date.now(); }, { passive: true }); });
 

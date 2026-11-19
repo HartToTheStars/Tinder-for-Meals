@@ -14,8 +14,12 @@ const ROOT = path.join(__dirname, "..", "..");
 const ORIGIN = "https://forkslist.com";
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 const ANON = fs.readFileSync(path.join(ROOT, "tools", "og", "render.js"), "utf8").match(/const ANON = "([^"]+)"/)[1];
-const CSS = "/seo.css?v=5";
-const SWJS = "/swipe.js?v=1";
+const CSS = "/seo.css?v=6";
+const ICONS = Function(`return ${fs.readFileSync(path.join(ROOT, "icons.js"), "utf8").match(/export const ICONS = (\{[\s\S]*?\n\});/)[1]}`)();
+const TAG_ICON = [["kid", "baby", "Kid friendly"], ["quick", "timer", "Under 30 min"], ["protein", "drumstick", "Protein-forward"],
+  ["vegetarian", "carrot", "Vegetarian"], ["vegan", "sprout", "Vegan"], ["gluten-free", "wheat-off", "Gluten-free"], ["dairy-free", "milk-off", "Dairy-free"]];
+const tagIcons = (tags) => TAG_ICON.filter(([k]) => (tags || []).includes(k)).slice(0, 3).map(([, i, l]) => [l, ICONS[i]]);
+const SWJS = "/swipe.js?v=2";
 const MIN = 6; // a collection needs at least this many recipes to get a page
 
 const JUNK = /(favorite things|weekend reads|gift guide|holiday guide|giveaway|link love|meal plan|^\d+:)/i;
@@ -175,7 +179,7 @@ async function load() {
       .map((x) => ({ x, s: x.tags.filter((t) => r.tags.includes(t)).length * 3 + (x.source !== r.source ? 1 : 0) + (hash(r.id + x.id) % 100) / 100 }))
       .sort((a, b) => b.s - a.s).map((o) => o.x);
     const related = ranked.slice(0, 6);
-    const swDeck = ranked.slice(6, 11).map((x) => ({ id: x.id, url: x.url, title: x.title, description: x.description, image: x.image, source: x.source, category: x.category, tags: x.tags }));
+    const swDeck = ranked.slice(6, 11).map((x) => ({ id: x.id, url: x.url, title: x.title, description: x.description, image: x.image, source: x.source, category: x.category, tags: x.tags, ti: tagIcons(x.tags) }));
     const more = colsFor(r).filter((c) => c.kind !== "course").slice(0, 8);
     const lead = r.description || `A ${tagNames.length ? `${tagNames.map((t) => t.toLowerCase()).join(", ")} ` : ""}${cat.one} from ${r.source}.`;
     const desc = `${r.description ? `${r.description.replace(/\.?$/, ".")} ` : ""}${r.title} from ${r.source}${r.total_minutes ? `, ready in ${r.total_minutes} minutes` : ""}. See it on forks, then cook it from ${r.source}.`.slice(0, 300);
@@ -199,7 +203,7 @@ ${swDeck.length >= 2 ? `<section class="sw" id="sw" aria-labelledby="swT" hidden
   <div class="sw-head"><h2 id="swT">Not tonight? Swipe a few<span class="dot">.</span></h2><button class="sw-pill" type="button" hidden></button></div>
   <p class="sw-sub" aria-live="polite"></p>
   <div class="sw-stage"></div>
-  <div class="sw-acts"><button class="sw-round sw-btn-nope" type="button" aria-label="Pass"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button><button class="sw-round sw-btn-keep" type="button" aria-label="Keep"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button></div>
+  <div class="sw-acts"><button class="sw-act sw-act-undo" type="button" aria-label="Undo" title="Undo (⌫)" disabled></button><button class="sw-act sw-act-nope" type="button" aria-label="Nope" title="Nope (←)"></button><button class="sw-act sw-act-like" type="button" aria-label="Keep" title="Keep (→)"></button><a class="sw-act sw-act-open" href="#" aria-label="Open recipe" title="Open recipe" target="_blank" rel="noopener"></a></div>
   <div class="sw-done" hidden><h3 class="sw-done-t"></h3><p class="sw-done-p"></p><div class="sw-done-thumbs"></div>
     <a class="btn" href="/?cat=${cat.app}&amp;want=">Keep swiping ${esc(cat.noun)}</a><button class="sw-text sw-strong sw-see" type="button">See your keeps</button></div>
 </section>

@@ -145,25 +145,46 @@ h2 { font-family: var(--serif); font-weight: 600; font-size: 24px; letter-spacin
 .sw-pill svg { width: 17px; height: 17px; fill: none; stroke: var(--basil); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .sw-pill:hover { box-shadow: inset 0 0 0 1.5px var(--ink); }
 .sw-sub { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
-.sw-stage { position: relative; height: min(440px, 112vw); margin-top: 16px; touch-action: pan-y; }
-.sw-card { position: absolute; inset: 0; border-radius: 22px; overflow: hidden; background: var(--line); box-shadow: 0 1px 2px rgb(42 33 28 / .06), 0 18px 40px -16px rgb(42 33 28 / .45); user-select: none; -webkit-user-select: none; }
-.sw-card.is-top { cursor: grab; z-index: 2; }
-.sw-card.is-drag { cursor: grabbing; }
-.sw-card.is-next { transform: scale(.95) translateY(18px); opacity: .85; }
-.sw-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
-.sw-card::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgb(20 14 10 / .88) 0%, rgb(20 14 10 / .3) 40%, transparent 65%); pointer-events: none; }
-.sw-body { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; padding: 20px; color: #fff; }
-.sw-src { font-size: 12px; font-weight: 600; opacity: .85; }
-.sw-body h3 { margin: 4px 0 0; font-family: var(--serif); font-weight: 600; font-size: 25px; line-height: 1.1; text-wrap: balance; }
-.sw-stamp { position: absolute; top: 28px; z-index: 1; padding: 4px 18px; border: 5px solid #fff; border-radius: 16px; color: #fff; font-weight: 800; font-size: 30px; letter-spacing: .04em; opacity: 0; pointer-events: none; }
-.sw-keep { left: 22px; transform: rotate(-12deg); background: rgb(63 155 107 / .85); }
-.sw-nope { right: 22px; transform: rotate(12deg); background: rgb(232 85 62 / .85); }
-.sw-acts { display: flex; justify-content: center; gap: 28px; margin-top: 20px; }
-.sw-round { width: 62px; height: 62px; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--paper); box-shadow: 0 1px 2px rgb(42 33 28 / .06), 0 10px 24px -10px rgb(42 33 28 / .35); cursor: pointer; transition: transform .15s; }
-.sw-round:active { transform: scale(.92); }
-.sw-round svg { width: 26px; height: 26px; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-.sw-btn-nope svg { stroke: var(--tomato); }
-.sw-btn-keep svg { stroke: var(--basil); }
+.sw-stage { position: relative; height: min(540px, 128vw); margin-top: 16px; }
+/* The homepage's card, stamps and buttons (styles.css .card / .stamp / .act), scoped to the deck */
+.sw { --shadow: 0 1px 2px rgb(42 33 28 / .06), 0 12px 32px -12px rgb(42 33 28 / .28); }
+@media (prefers-color-scheme: dark) { .sw { --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 16px 40px -14px rgb(0 0 0 / .7); } }
+.sw-card { position: absolute; inset: 0; border-radius: 22px; overflow: hidden; background: var(--paper); box-shadow: var(--shadow); touch-action: pan-y; user-select: none; -webkit-user-select: none; will-change: transform; cursor: grab; transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .35s; }
+.sw-card.dragging { transition: none; cursor: grabbing; }
+.sw-card.gone { z-index: 10; pointer-events: none; }
+.sw-card[data-depth="1"] { transform: scale(.95) translateY(24px); }
+.sw-card[data-depth="2"] { transform: scale(.9) translateY(46px); opacity: .6; }
+.sw-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; background: var(--line); }
+.sw-card::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgb(20 14 10 / .88) 0%, rgb(20 14 10 / .35) 38%, transparent 62%); pointer-events: none; }
+.sw-cbody { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px; color: #fff; z-index: 1; }
+.sw-source { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 5px 9px; border-radius: 999px; background: rgb(255 255 255 / .18); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); margin-bottom: 10px; }
+.sw-ctags { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle; }
+.sw-ctags span { display: inline-grid; place-items: center; width: 26px; height: 24px; border-radius: 999px; background: rgb(255 255 255 / .18); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.sw-ctags svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sw-card h3 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 27px; line-height: 1.1; letter-spacing: -.01em; text-wrap: balance; }
+.sw-card p { margin: 8px 0 0; font-size: 14px; line-height: 1.45; opacity: .85; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sw-stamp { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; opacity: 0; pointer-events: none; font-family: var(--serif); font-weight: 700; font-size: clamp(56px, 18vw, 84px); letter-spacing: .02em; color: #fff; text-shadow: 0 2px 18px rgb(0 0 0 / .18); }
+.sw-stamp span { display: inline-block; padding: 6px 26px; border: 6px solid #fff; border-radius: 20px; }
+.sw-stamp-like { background: rgb(108 214 150 / .82); }
+.sw-stamp-like span { transform: rotate(-10deg); }
+.sw-stamp-nope { background: rgb(255 118 98 / .82); }
+.sw-stamp-nope span { transform: rotate(10deg); }
+.sw-card:not(.dragging) .sw-stamp { transition: opacity .2s; }
+.sw-acts { display: flex; justify-content: center; align-items: center; gap: 18px; padding: 22px 0 6px; }
+.sw-act { width: 52px; height: 52px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: var(--paper); box-shadow: var(--shadow); color: var(--muted); cursor: pointer; text-decoration: none; transition: transform .15s, opacity .2s; }
+.sw-act svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.sw-act:active { transform: scale(.88); }
+.sw-act:disabled { opacity: .35; pointer-events: none; }
+.sw-act-nope, .sw-act-like { width: 68px; height: 68px; }
+.sw-act-nope svg, .sw-act-like svg { width: 30px; height: 30px; stroke-width: 2.6; }
+.sw-act-nope { color: var(--tomato); }
+.sw-act-like { color: var(--basil); }
+.sw-act-like svg { fill: currentColor; stroke-width: 0; }
+.sw-act.sw-pulse { animation: sw-pulse .35s ease; }
+@keyframes sw-pulse { 50% { transform: scale(1.15); } }
+.sw-heart { position: fixed; pointer-events: none; z-index: 60; animation: sw-float 1s ease-out forwards; }
+.sw-heart svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+@keyframes sw-float { to { transform: translate(var(--dx), -160px) scale(.6) rotate(var(--rot)); opacity: 0; } }
 .sw-done { margin-top: 16px; padding: 24px 22px; border-radius: 22px; background: var(--paper); box-shadow: 0 1px 2px rgb(42 33 28 / .06), 0 12px 32px -12px rgb(42 33 28 / .28); }
 .sw-done-t { margin: 0; font-family: var(--serif); font-weight: 700; font-size: 28px; letter-spacing: -.01em; }
 .sw-done-p { margin: 8px 0 0; color: var(--muted); }
