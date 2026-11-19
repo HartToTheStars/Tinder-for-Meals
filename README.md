@@ -24,5 +24,8 @@ Every 10 swipes the app calls `meals_refine()`, which recomputes `meals_taste`: 
 - Links land on `/?login=<token_hash>`; the app calls `verifyOtp` and merges any guest swipes.
 - Swipes are per user in `meals_user_swipes` (RLS: own rows only). The old shared `meals_swipes` table is kept as a closed backup; its rows were copied to Kelly.
 
+## Sharing your keeps
+Profiles (`meals_profiles`) are private by default (`is_public = false`). The account sheet has a "Share my keeps" switch that calls `meals_set_public(bool)` (own row only; needs a first name, so it asks for one first). A shared list gets a link `/?u=<handle>`, which opens a landing sheet: avatar, keep count, a 3x2 peek at their keeps and a Follow button. Following adds them to "Other keeps". `meals_people` and `meals_public_keeps` only return public profiles, so switching sharing off hides the list from followers too. Recipe share links only carry `by=<handle>` when the sender's list is shared.
+
 ## Share previews
 `tools/og/render.js` renders 1200x630 preview images (og/<id>.jpg, og/site.jpg) with headless Chromium and writes a share page per recipe at s/<id>/index.html with Open Graph tags. Re-run it after a harvest to cover new recipes, then publish with `python3 tools/publish.py`. Recipes without a page share as /?r=<id> (generic site preview).

@@ -750,8 +750,48 @@ $("#acctBtn").addEventListener("click", () => {
   if (state.me?.name) $("#acctSheetIcon").innerHTML = avatar(state.me.name, "xl", state.me.color);
   $("#acctTitle").textContent = state.me?.name ? `Hi ${state.me.name}` : "You're signed in";
   $("#acctText").textContent = `${state.user.email}. Your keeps are saved to your account.`;
+  renderShare();
   openSheet("#acct");
 });
+
+// Sharing your keeps: private by default, switched on here. Anyone with the link can see and follow them.
+const profileUrl = (handle) => `${location.origin}/?u=${encodeURIComponent(handle)}`;
+function renderShare() {
+  const on = !!state.me?.is_public;
+  $("#shareToggle").checked = on;
+  $("#shareHint").textContent = on ? "Anyone with your link can see and follow them." : "Only you can see your keeps.";
+  $("#shareLink").hidden = !on;
+  if (on) $("#shareLink").innerHTML = `${icon("share")}<span>${esc(profileUrl(state.me.handle).replace(/^https?:\/\//, ""))}</span>`;
+}
+async function setPublic(on) {
+  const { data, error } = await db.rpc("meals_set_public", { p_public: on });
+  if (error) { renderShare(); return toast("Couldn't change that. Try again?"); }
+  state.me = { ...state.me, ...data };
+  renderShare();
+  toast(on ? "Your keeps are shared" : "Your keeps are private again");
+}
+$("#shareToggle").addEventListener("change", (e) => {
+  const on = e.target.checked;
+  // A shared list needs a name to show. Ask for it first, then share.
+  if (on && !state.me?.name) {
+    e.target.checked = false;
+    state.shareAfterName = true;
+    closeSheet("#acct", () => askName({ force: true }));
+    return;
+  }
+  setPublic(on);
+});
+async function shareProfile() {
+  if (!state.me?.is_public) return;
+  const url = profileUrl(state.me.handle);
+  const text = `My recipe keeps on forks. Follow along.`;
+  try {
+    if (navigator.share) { await navigator.share({ title: `${state.me.name}'s keeps`, text, url }); return; }
+  } catch (err) { if (err?.name === "AbortError") return; }
+  try { await navigator.clipboard.writeText(url); toast("Link copied"); }
+  catch { prompt("Copy this link", url); }
+}
+$("#shareLink").addEventListener("click", shareProfile);
 $("#acctDone").addEventListener("click", () => closeSheet("#acct"));
 // Delete account: tap once to arm, again to confirm.
 $("#acctDelete").addEventListener("click", async () => {
@@ -832,7 +872,7 @@ async function loadSocial() {
     }
     const { data } = await db.from("meals_follows").select("followee");
     state.follows = new Set((data || []).map((d) => d.followee));
-    const { data: me } = await db.from("meals_profiles").select("handle,name,color").eq("user_id", state.user.id).maybeSingle();
+    const { data: me } = await db.from("meals_profiles").select("handle,name,color,is_public").eq("user_id", state.user.id).maybeSingle();
     state.me = me || null;
   } else {
     state.follows = new Set(ls.get(GUEST_FOLLOWS, []));
@@ -937,7 +977,8 @@ async function hasPreview(id) {
 }
 async function shareRecipe(r) {
   if (!r) return;
-  const by = state.me ? `${encodeURIComponent(state.me.handle)}` : "";
+  // Only credit the sender when their list is shared; a private list can't be followed.
+  const by = state.me?.is_public ? `${encodeURIComponent(state.me.handle)}` : "";
   const url = (await hasPreview(r.id))
     ? `${location.origin}/s/${r.id}/${by ? `?by=${by}` : ""}`
     : `${location.origin}/?r=${r.id}${by ? `&by=${by}` : ""}`;
@@ -987,10 +1028,46 @@ $("#landGo").addEventListener("click", async () => {
   closeSheet("#landing", () => toast(follow ? `Following ${followTarget.name}. Swipe away` : "Swipe away"));
 });
 
+// Shared-profile landing (/?u=<handle>): who it is, a peek at their keeps, and a Follow button.
+let profLanding = null;
+async function showProfileLanding(handle) {
+  const p = await profileFor(handle);
+  if (!p) return toast("That list is private");
+  if (p.user_id === state.user?.id) return openPeople(handle);
+  const { data } = await db.rpc("meals_public_keeps", { p_handle: handle });
+  const keeps = (data || []).filter((r) => !JUNK.test(r.title)).map(clean);
+  profLanding = { handle, profile: p };
+  $("#profAvatar").outerHTML = avatar(p.name, "xl", p.color).replace('class="avatar ', 'id="profAvatar" class="avatar ');
+  $("#profTitle").textContent = `${p.name}'s keeps`;
+  $("#profText").textContent = keeps.length
+    ? `${keeps.length} recipe${keeps.length === 1 ? "" : "s"} ${p.name} would make again.`
+    : `${p.name} hasn't kept anything yet.`;
+  $("#profGrid").hidden = !keeps.length;
+  $("#profGrid").innerHTML = keeps.slice(0, 6).map((r, i) =>
+    `<img src="${esc(r.image)}" alt="${esc(r.title)}" loading="lazy" referrerpolicy="no-referrer" style="animation-delay:${i * 50}ms" />`).join("");
+  renderProfFollow();
+  openSheet("#profLanding");
+}
+function renderProfFollow() {
+  const { profile } = profLanding;
+  const on = state.follows.has(profile.user_id);
+  $("#profFollow").innerHTML = `${icon(on ? "users" : "user-plus")}<span>${on ? `See ${esc(profile.name)}'s keeps` : `Follow ${esc(profile.name)}`}</span>`;
+}
+$("#profFollow").addEventListener("click", async () => {
+  const { handle, profile } = profLanding;
+  const was = state.follows.has(profile.user_id);
+  if (!was) await setFollow(profile.user_id, true);
+  closeSheet("#profLanding", async () => {
+    await openPeople(handle);
+    if (!was) toast(`Following ${profile.name}`);
+  });
+});
+$("#profSkip").addEventListener("click", () => { show("swipe"); closeSheet("#profLanding"); });
+
 // ---------- first name (asked once, on first sign-in) ----------
-function askName() {
+function askName({ force = false } = {}) {
   if (!state.user || state.me?.name || !$("#nameSheet").hidden) return;
-  if (ls.get(`forks:nameLater:${state.user.id}`, false)) return;
+  if (!force && ls.get(`forks:nameLater:${state.user.id}`, false)) return;
   $("#nameErr").hidden = true;
   $("#nameInput").value = "";
   pickedColor = BRAND[Math.floor(Math.random() * BRAND.length)]; // random brand color, kept on save
@@ -1017,12 +1094,17 @@ $("#nameForm").addEventListener("submit", async (e) => {
   const { data, error } = await db.rpc("meals_save_name", { p_name: name, p_color: pickedColor });
   $("#nameGo").classList.remove("is-busy");
   if (error) { $("#nameErr").textContent = "Couldn't save that. Try again?"; $("#nameErr").hidden = false; return; }
-  state.me = data;
+  state.me = { ...state.me, ...data };
   updateAcct();
+  if (state.shareAfterName) {
+    state.shareAfterName = false;
+    return closeSheet("#nameSheet", () => setPublic(true));
+  }
   closeSheet("#nameSheet", () => toast(`Hi ${data.name}`));
 });
 $("#nameSkip").addEventListener("click", () => {
-  if (state.user) ls.set(`forks:nameLater:${state.user.id}`, true);
+  if (state.user && !state.shareAfterName) ls.set(`forks:nameLater:${state.user.id}`, true);
+  state.shareAfterName = false;
   closeSheet("#nameSheet");
 });
 
@@ -1050,6 +1132,7 @@ document.addEventListener("keydown", (e) => {
   if (!$("#acct").hidden) { if (e.key === "Escape") closeSheet("#acct"); return; }
   if (!$("#people").hidden) { if (e.key === "Escape") closeSheet("#people"); return; }
   if (!$("#landing").hidden) { if (e.key === "Escape" || e.key === "Enter") $("#landGo").click(); return; }
+  if (!$("#profLanding").hidden) { if (e.key === "Escape") $("#profSkip").click(); else if (e.key === "Enter") $("#profFollow").click(); return; }
   if (!$("#nameSheet").hidden) { if (e.key === "Escape") closeSheet("#nameSheet"); return; }
   if (e.target.matches("input")) { if (e.key === "Escape") e.target.blur(); return; }
   if (!$("#view-swipe").classList.contains("is-active")) {
@@ -1089,8 +1172,8 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   // Arriving from a magic link?
   const params = new URLSearchParams(location.search);
   const hash = params.get("login");
-  const shared = params.get("r"), sharedBy = params.get("by");
-  if (shared && !hash) history.replaceState(null, "", location.pathname);
+  const shared = params.get("r"), sharedBy = params.get("by"), sharedUser = params.get("u");
+  if ((shared || sharedUser) && !hash) history.replaceState(null, "", location.pathname);
   let merge = false;
   if (hash) {
     history.replaceState(null, "", location.pathname);
@@ -1103,6 +1186,8 @@ function onKeptWant() { $("#keptTags")._sig = null; saveSet("forks:keptWant", st
   if (state.user) setTimeout(askName, merge ? 1200 : 400);
   if (!state.user) { await loadSocial(); await loadKept(); refill(); }
   // Arriving from a shared recipe?
+  // Arriving from a shared profile?
+  if (!shared && sharedUser && /^[a-z0-9_]{2,24}$/i.test(sharedUser)) showProfileLanding(sharedUser.toLowerCase());
   if (shared && /^[0-9a-f-]{36}$/i.test(shared)) showLanding(shared, sharedBy && /^[a-z0-9_]{2,24}$/i.test(sharedBy) ? sharedBy.toLowerCase() : null);
   db.auth.onAuthStateChange((_evt, session) => {
     if ((session?.user?.id ?? null) !== (state.user?.id ?? null)) setUser(session?.user ?? null);

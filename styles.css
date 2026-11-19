@@ -451,3 +451,28 @@ button.kept-by { cursor: pointer; }
 
 /* brand period on headings, like the forks. logo */
 .dot { color: var(--tomato); }
+
+/* account sheet: share my keeps */
+.share-box { margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: var(--bg); text-align: left; }
+.share-row { display: flex; align-items: center; gap: 14px; cursor: pointer; }
+.share-label { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.share-label b { font-size: 15px; font-weight: 600; }
+.share-label small { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.switch { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 46px; height: 28px; border-radius: 999px; background: var(--line); cursor: pointer; transition: background .2s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .25); transition: transform .2s cubic-bezier(.3,1.4,.5,1); }
+.switch:checked { background: var(--basil); }
+.switch:checked::after { transform: translateX(18px); }
+.switch:focus-visible { outline: 2px solid var(--basil); outline-offset: 2px; }
+.share-link { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 12px; padding: 11px 14px; border-radius: 12px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); font-size: 13.5px; color: var(--ink); text-align: left; }
+.share-link svg { flex: none; width: 16px; height: 16px; color: var(--basil); }
+.share-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.share-link[hidden] { display: none; }
+
+/* shared-profile landing */
+.prof-sheet { padding-top: 30px; }
+.prof-sheet .avatar.xl { animation: pop .4s cubic-bezier(.3,1.6,.5,1) both; }
+.prof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 18px; }
+.prof-grid[hidden] { display: none; }
+.prof-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 14px; background: var(--line); animation: pop .4s cubic-bezier(.3,1.4,.5,1) both; }
+.follow-go { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.follow-go svg { width: 18px; height: 18px; stroke-width: 2.2; }
