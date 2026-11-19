@@ -341,8 +341,8 @@ main { flex: 1; display: flex; flex-direction: column; }
 .brand { display: flex; flex-direction: column; }
 .tagline { font-size: 11.5px; color: var(--muted); margin-top: -3px; letter-spacing: .01em; white-space: nowrap; }
 @media (min-width: 1000px) {
-  .home .brand { flex-direction: row; align-items: baseline; gap: 14px; }
-  .home .tagline { font-family: var(--serif); font-style: italic; font-size: 16px; margin: 0; padding-left: 14px; border-left: 1px solid var(--line); }
+  .brand { flex-direction: row; align-items: baseline; gap: 14px; }
+  .tagline { font-family: var(--serif); font-style: italic; font-size: 16px; margin: 0; padding-left: 14px; border-left: 1px solid var(--line); }
 }
 
 /* ---------- social ---------- */

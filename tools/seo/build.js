@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, "..", "..");
 const ORIGIN = "https://forkslist.com";
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 const ANON = fs.readFileSync(path.join(ROOT, "tools", "og", "render.js"), "utf8").match(/const ANON = "([^"]+)"/)[1];
-const CSS = "/seo.css?v=1";
+const CSS = "/seo.css?v=2";
 const MIN = 6; // a collection needs at least this many recipes to get a page
 
 const JUNK = /(favorite things|weekend reads|gift guide|holiday guide|giveaway|link love|meal plan|^\d+:)/i;
@@ -47,7 +47,7 @@ const TAGS = {
 const DIET = new Set(["vegetarian", "vegan", "gluten-free", "dairy-free"]);
 
 // ---------- page chrome ----------
-const LOGO = `<a class="logo" href="/" aria-label="forks home">forks<span>.</span></a>`;
+const LOGO = `<div class="brand"><a class="logo" href="/" aria-label="forks home">forks<span>.</span></a><p class="tagline">meet your next meal.</p></div>`;
 function page({ title, desc, canonical, image = `${ORIGIN}/og/site.jpg`, imageAlt = "forks. meet your next meal.", body, ld = [], extraHead = "" }) {
   const ldTag = ld.length ? `<script type="application/ld+json">${JSON.stringify(ld.length === 1 ? { "@context": "https://schema.org", ...ld[0] } : { "@context": "https://schema.org", "@graph": ld }).replace(/</g, "\\u003c")}</script>\n` : "";
   return `<!doctype html>
