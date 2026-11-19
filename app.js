@@ -721,13 +721,12 @@ function keptByLine(r) {
 }
 
 function updateCount(bump) {
-  // Quiet counts: "Kept · 7" on the tab, "7 recipes saved" under the heading. Hidden at zero.
+  // Quiet count: "Keeps · 7" on the tab. Hidden at zero.
   const n = state.kept.length;
-  const tab = $("#keptCount"), sub = $("#keptSub");
+  const tab = $("#keptCount");
   tab.textContent = n;
-  sub.textContent = `${n} recipe${n === 1 ? "" : "s"} saved`;
-  tab.hidden = sub.hidden = !n;
-  if (bump) for (const c of [tab, sub]) { c.classList.remove("bump"); void c.offsetWidth; c.classList.add("bump"); }
+  tab.hidden = !n;
+  if (bump) { tab.classList.remove("bump"); void tab.offsetWidth; tab.classList.add("bump"); }
 }
 
 const norm = (s = "") => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
