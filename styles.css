@@ -835,3 +835,4 @@ a.src-row:hover { background: var(--bg); }
   .home #view-swipe .actions { padding-bottom: 34px; }
   .home #view-swipe .with-btn { margin: 0 auto 12px; }
 }
+.list > .swipe-row { flex-shrink: 0; } /* never squash rows to fit; the list scrolls instead */
