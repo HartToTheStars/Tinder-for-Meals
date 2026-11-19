@@ -785,7 +785,7 @@ function renderKept() {
     return `
     <li class="swipe-row" data-id="${r.id}">
       <span class="swipe-bg swipe-open" aria-hidden="true">${icon("chef-hat")}<b class="sw-label">Made this!</b><b class="sw-big">Nailed it!</b></span>
-      <span class="swipe-bg swipe-del" aria-hidden="true"><b>Remove</b>${icon("x")}</span>
+      <span class="swipe-bg swipe-del" aria-hidden="true"><b>Delete</b>${icon("trash-2")}</span>
       <div class="item${r.id === state.freshId ? " fresh" : ""}" data-id="${r.id}" style="animation-delay:${r.id === state.freshId ? 0 : Math.min(i, 12) * 20}ms">
       <span class="thumb"><img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" />${r.made_count ? `<span class="made-badge" role="img" aria-label="You made this">${icon("chef-hat")}</span>` : ""}</span>
       <a href="${esc(r.url)}" target="_blank" rel="noopener" draggable="false">
@@ -841,8 +841,8 @@ async function removeKeep(row) {
     done();
   }, 280));
   const error = await store.unkeep(id);
-  if (error) return toast("Couldn't remove that");
-  toast("Removed", { label: "Undo", run: async () => {
+  if (error) return toast("Couldn't delete that");
+  toast("Deleted", { label: "Undo", run: async () => {
     await gone;
     if (state.kept.some((x) => x.id === id)) return;
     state.kept.splice(Math.min(at, state.kept.length), 0, r);
@@ -982,7 +982,7 @@ document.addEventListener("pointerdown", (e) => { if (keepMenu && !keepMenu.el.c
 window.addEventListener("resize", () => closeKeepMenu());
 document.addEventListener("scroll", () => closeKeepMenu(), true);
 
-// Keeps rows: swipe left to remove (with Undo), swipe right for Made this! (confetti, then the note sheet). Vertical scrolling still works.
+// Keeps rows: swipe left to delete (with Undo), swipe right for Made this! (confetti, then the note sheet). Vertical scrolling still works.
 (() => {
   const list = $("#list");
   let drag = null, eatClick = false;
@@ -1106,8 +1106,7 @@ function confetti(x, y, n = 90, { power = 1, aim = -Math.PI / 2, spread = 1.1, s
   }
 }
 
-// First time on Keeps with something kept: the top row peeks right (Open) then left (Remove), once.
-// Phones: when you open Keeps, the first row slides right to show "Made this!", then left to show Remove.
+// Phones: when you open Keeps, the first row slides right to show "Made this!", then left to show Delete.
 // Slow enough to read. Plays every time Keeps is opened (Andrew's call).
 let keepHintAnims = [];
 function stopKeepHint() { keepHintAnims.forEach((a) => a.cancel()); keepHintAnims = []; }
