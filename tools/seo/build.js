@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, "..", "..");
 const ORIGIN = "https://forkslist.com";
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 const ANON = fs.readFileSync(path.join(ROOT, "tools", "og", "render.js"), "utf8").match(/const ANON = "([^"]+)"/)[1];
-const CSS = "/seo.css?v=2";
+const CSS = "/seo.css?v=3";
 const MIN = 6; // a collection needs at least this many recipes to get a page
 
 const JUNK = /(favorite things|weekend reads|gift guide|holiday guide|giveaway|link love|meal plan|^\d+:)/i;
@@ -99,6 +99,7 @@ ${body}
 <footer class="foot">
   <nav aria-label="More from forks"><a href="/recipes/">All recipe collections</a><a href="/swipe-together/">Decide dinner together</a><a href="/sources.html">Sources</a><a href="/privacy.html">Privacy</a></nav>
   <p>forks links to every recipe on its original site. Photos and recipes belong to their publishers.</p>
+  <p class="foot-love">Made with <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> for Kelly</p>
 </footer>
 </body>
 </html>
