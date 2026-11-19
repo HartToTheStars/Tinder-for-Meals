@@ -2,6 +2,8 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://forkslist.com/</loc><lastmod>2026-11-19</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url>
   <url><loc>https://forkslist.com/swipe-together/</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://forkslist.com/what-to-make-for-dinner/</loc><lastmod>2026-11-19</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://forkslist.com/compare/</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://forkslist.com/recipes/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://forkslist.com/recipes/dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://forkslist.com/recipes/appetizers/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
@@ -42,6 +44,30 @@
   <url><loc>https://forkslist.com/recipes/smitten-kitchen-appetizers/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://forkslist.com/recipes/smitten-kitchen-desserts/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://forkslist.com/recipes/smitten-kitchen-drinks/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/kid-friendly-30-minute-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/kid-friendly-high-protein-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/kid-friendly-vegetarian-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/kid-friendly-dairy-free-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/30-minute-high-protein-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/30-minute-vegetarian-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/30-minute-vegan-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/30-minute-gluten-free-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/30-minute-dairy-free-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/high-protein-vegetarian-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/high-protein-gluten-free-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/high-protein-dairy-free-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/vegetarian-gluten-free-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/vegetarian-dairy-free-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/vegan-gluten-free-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/gluten-free-dairy-free-dinners/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/kid-friendly-vegetarian-desserts/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/kid-friendly-gluten-free-desserts/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/kid-friendly-dairy-free-desserts/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/vegetarian-gluten-free-desserts/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/vegetarian-dairy-free-desserts/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/like-bon-appetit/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/like-half-baked-harvest/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://forkslist.com/recipes/like-smitten-kitchen/</loc><lastmod>2026-11-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>https://forkslist.com/s/6cd6a266-aa15-49ca-9215-3d2a9283c737/</loc><lastmod>2026-11-13</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://forkslist.com/s/d2650d25-53b7-4a10-83b3-b100e010ee40/</loc><lastmod>2026-11-12</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://forkslist.com/s/00d76e10-e4ab-47dd-8785-3e847791b5ce/</loc><lastmod>2026-11-11</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>

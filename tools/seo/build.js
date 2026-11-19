@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, "..", "..");
 const ORIGIN = "https://forkslist.com";
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 const ANON = fs.readFileSync(path.join(ROOT, "tools", "og", "render.js"), "utf8").match(/const ANON = "([^"]+)"/)[1];
-const CSS = "/seo.css?v=6";
+const CSS = "/seo.css?v=7";
 const ICONS = Function(`return ${fs.readFileSync(path.join(ROOT, "icons.js"), "utf8").match(/export const ICONS = (\{[\s\S]*?\n\});/)[1]}`)();
 const TAG_ICON = [["kid", "baby", "Kid friendly"], ["quick", "timer", "Under 30 min"], ["protein", "drumstick", "Protein-forward"],
   ["vegetarian", "carrot", "Vegetarian"], ["vegan", "sprout", "Vegan"], ["gluten-free", "wheat-off", "Gluten-free"], ["dairy-free", "milk-off", "Dairy-free"]];
@@ -102,7 +102,7 @@ ${ldTag}${extraHead}<script>
 ${body}
 </main>
 <footer class="foot">
-  <nav aria-label="More from forks"><a href="/recipes/">All recipe collections</a><a href="/swipe-together/">Decide dinner together</a><a href="/sources.html">Sources</a><a href="/privacy.html">Privacy</a></nav>
+  <nav aria-label="More from forks"><a href="/recipes/">All recipe collections</a><a href="/what-to-make-for-dinner/">What to make for dinner</a><a href="/swipe-together/">Decide dinner together</a><a href="/compare/">Recipe swipe apps compared</a><a href="/sources.html">Sources</a><a href="/privacy.html">Privacy</a></nav>
   <p>forks links to every recipe on its original site. Photos and recipes belong to their publishers.</p>
   <p class="foot-love">Made with <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> for Kelly</p>
 </footer>
@@ -133,6 +133,7 @@ async function load() {
 
 (async () => {
   const recipes = await load();
+  const today0 = new Date().toISOString().slice(0, 10);
   const hasOg = (id) => fs.existsSync(path.join(ROOT, "og", `${id}.jpg`));
   const sources = [...new Set(recipes.map((r) => r.source))].sort();
   console.log(`${recipes.length} recipes from ${sources.length} sources`);
@@ -165,6 +166,43 @@ async function load() {
       add({ slug: `${slugify(s)}-${c.slug}`, kind: "source-course", h1: `${s} ${c.noun}`, title: `${s} ${c.noun}`, items: sub, source: s, cat: ck, app: `/?cat=${c.app}&want=`,
         intro: `${sub.length} ${c.noun} from ${s}. Tap one to see it, or swipe through them in forks.` });
     }
+  }
+  // Two filters on one course ("30-minute vegetarian dinners", "gluten-free dairy-free desserts"): the long tail people
+  // actually type, and thin enough in search results to win.
+  const ORDER = ["kid", "quick", "protein", "vegetarian", "vegan", "gluten-free", "dairy-free"];
+  const SAME = new Set(["vegetarian|vegan", "vegan|dairy-free"]); // the first already implies the second
+  const cap = (s) => s[0].toUpperCase() + s.slice(1);
+  for (const ck of ["main", "dessert"]) {
+    const c = CATS[ck];
+    ORDER.forEach((a, i) => ORDER.slice(i + 1).forEach((b) => {
+      if (SAME.has(`${a}|${b}`)) return;
+      const sub = recipes.filter((r) => r.category === ck && r.tags.includes(a) && r.tags.includes(b));
+      const name = `${cap(TAGS[a].adj)} ${TAGS[b].adj} ${c.noun}`;
+      add({ slug: `${TAGS[a].slug}-${TAGS[b].slug}-${c.slug}`, kind: "combo2", h1: name, title: name, items: sub,
+        tag: DIET.has(b) ? b : a, cat: ck, app: `/?cat=${c.app}&want=${a},${b}`,
+        intro: `${sub.length} ${c.noun} that are both ${TAGS[a].label.toLowerCase()} and ${TAGS[b].label.toLowerCase()}, from ${list([...new Set(sub.map((r) => r.source))].sort())}.` });
+    }));
+  }
+
+  // "Recipes like <source>": dishes from the other sites that share a source's favorite ingredients. Only forks can
+  // cross blogs like this, and "recipes like Half Baked Harvest" style searches have little competition.
+  const STOP = new Set([...SMALL, "recipe", "recipes", "easy", "best", "perfect", "simple", "homemade", "ever", "really", "very", "style", "your", "this", "that", "from", "into", "over", "make", "made", "time", "minute", "minutes", "with", "without"]);
+  const words = (t) => [...new Set(t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z]+/).filter((w) => w.length > 3 && !STOP.has(w)))];
+  const freq = (rs) => rs.reduce((m, r) => { for (const w of words(r.title)) m[w] = (m[w] || 0) + 1; return m; }, {});
+  const allFreq = freq(recipes);
+  for (const s of sources) {
+    const mine = recipes.filter((r) => r.source === s);
+    if (mine.length < 20) continue;
+    const f = freq(mine);
+    // How much more often a word shows up at this source than across all of forks (smoothed so rare words don't win).
+    const lift = Object.fromEntries(Object.entries(f).filter(([, n]) => n >= 3).map(([w, n]) => [w, (n / mine.length) / ((allFreq[w] + 2) / (recipes.length + 20))]));
+    const signature = Object.entries(lift).sort((a, b) => b[1] - a[1]).map(([w]) => w).filter((w) => f[w] >= 4).slice(0, 4);
+    const items = recipes.filter((r) => r.source !== s)
+      .map((r) => { const ws = words(r.title); return { r, sc: ws.reduce((t, w) => t + (f[w] ? Math.log(1 + f[w]) * Math.min(lift[w] || 1, 3) : 0), 0) / Math.sqrt(Math.max(ws.length, 2)) + (r.category === "main" ? 0.2 : 0) }; })
+      .filter((o) => o.sc >= 1.2).sort((a, b) => b.sc - a.sc).slice(0, 48).map((o) => o.r);
+    const others = [...new Set(items.map((r) => r.source))].sort();
+    add({ slug: `like-${slugify(s)}`, kind: "like", h1: `Recipes like ${s}`, title: `Recipes like ${s}: ${items.length} picks from other food sites`, items, source: s, app: "/",
+      intro: `Cook a lot from ${s}? These ${items.length} recipes from ${list(others)} share its favorite ingredients and dishes${signature.length ? `, like ${list(signature)}` : ""}. Each one links to its own site to cook.` });
   }
   const bySlug = Object.fromEntries(cols.map((c) => [c.slug, c]));
   const colsFor = (r) => cols.filter((c) => c.items.includes(r));
@@ -284,7 +322,9 @@ ${siblings.length ? `<section class="chips-sec" aria-labelledby="sibT"><h2 id="s
 ${group(["course"], "By course")}
 ${group(["filter"], "By diet and time")}
 ${group(["combo"], "Weeknight ideas")}
-${group(["source", "source-course"], "By source")}`,
+${group(["combo2"], "Narrow it down")}
+${group(["source", "source-course"], "By source")}
+${group(["like"], "If you like a site")}`,
     ld: [crumbLd([["Recipes", "/recipes/"]])],
   }));
 
@@ -334,12 +374,94 @@ ${group(["source", "source-course"], "By source")}`,
     ld: [crumbLd([["Decide dinner together", "/swipe-together/"]]), { "@type": "FAQPage", mainEntity: faq.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }],
   }));
 
+  // ---------- What to make for dinner: the deck is the answer (for "what should I make for dinner" and generator searches) ----------
+  const pool = dinners.filter((r) => r.description).length >= 60 ? dinners.filter((r) => r.description) : dinners;
+  const genDeck = pool.slice(0, 160).map((r) => ({ r, k: hash(r.id + today0) })).sort((a, b) => a.k - b.k).slice(0, 60).map(({ r }) => r);
+  const genJSON = genDeck.map((x) => ({ id: x.id, url: x.url, title: x.title, description: x.description, image: x.image, source: x.source, category: x.category, tags: x.tags, ti: tagIcons(x.tags) }));
+  const genFaq = [
+    ["How does this pick dinners?", `It shuffles ${genDeck.length} recent dinners from ${list(sources)} every time you open the page. Swipe right on anything that sounds good, left to see the next one.`],
+    ["Can I narrow it down?", "Yes. Open a collection below, like 30-minute or vegetarian dinners, or tap Keep swiping to filter by course, diet and time in forks."],
+    ["My partner and I can never agree. Can we pick together?", "Start a round of Swipe with someone. You each swipe the same 12 dinners on your own phone, and forks shows the ones you both kept."],
+    ["Is it free?", "Yes. No app to install and no account needed. Sign in only if you want your keeps on more than one device."],
+  ];
+  const ideas = ["30-minute-dinners", "vegetarian-dinners", "kid-friendly-dinners", "high-protein-dinners", "kid-friendly-30-minute-dinners", "30-minute-vegetarian-dinners", "gluten-free-dinners", "dinners"].filter((k) => bySlug[k]);
+  fs.mkdirSync(path.join(ROOT, "what-to-make-for-dinner"), { recursive: true });
+  fs.writeFileSync(path.join(ROOT, "what-to-make-for-dinner", "index.html"), page({
+    title: "What should I make for dinner? Swipe until one sounds good | forks.", canonical: `${ORIGIN}/what-to-make-for-dinner/`,
+    desc: `Can't decide what to cook tonight? Swipe through ${genDeck.length} shuffled dinners from ${list(sources)}. Keep the ones that sound good. Free, no app needed.`,
+    body: `${crumbs([["What to make for dinner", "/what-to-make-for-dinner/"]])}
+<section class="col-head gen-head">
+  <h1>What should I make for dinner?</h1>
+  <p>Swipe until something sounds good. Right to keep it, left for the next idea. ${genDeck.length} dinners from ${esc(list(sources))}, shuffled every time.</p>
+</section>
+<section class="sw" id="sw" aria-labelledby="swT" hidden data-sb="${SUPABASE_URL}" data-key="${ANON}" data-more="/?cat=main&amp;want=" data-noun="dinners">
+  <div class="sw-head"><h2 id="swT">Tonight's options<span class="dot">.</span></h2><button class="sw-pill" type="button" hidden></button></div>
+  <p class="sw-sub" aria-live="polite"></p>
+  <div class="sw-stage"></div>
+  <div class="sw-acts"><button class="sw-act sw-act-undo" type="button" aria-label="Undo" title="Undo (⌫)" disabled></button><button class="sw-act sw-act-nope" type="button" aria-label="Nope" title="Nope (←)"></button><button class="sw-act sw-act-like" type="button" aria-label="Keep" title="Keep (→)"></button><a class="sw-act sw-act-open" href="#" aria-label="Open recipe" title="Open recipe" target="_blank" rel="noopener"></a></div>
+  <div class="sw-done" hidden><h3 class="sw-done-t"></h3><p class="sw-done-p"></p><div class="sw-done-thumbs"></div>
+    <a class="btn" href="/?cat=main&amp;want=">Keep swiping dinners</a><button class="sw-text sw-strong sw-see" type="button">See your keeps</button></div>
+</section>
+<script type="application/json" id="swDeck">${JSON.stringify(genJSON).replace(/</g, "\\u003c")}</script>
+<script>(function(){var e=document.getElementById("swDeck");try{var d=JSON.parse(e.textContent);for(var i=d.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=d[i];d[i]=d[j];d[j]=t;}e.textContent=JSON.stringify(d).replace(/</g,"\\u003c");}catch(x){}})();</script>
+<script src="${SWJS}" defer></script>
+<section class="chips-sec" aria-labelledby="narrowT"><h2 id="narrowT">Narrow it down</h2><ul class="chips">${ideas.map((k) => `<li><a href="/recipes/${k}/">${esc(bySlug[k].h1)}</a></li>`).join("")}<li><a href="/swipe-together/">Decide with someone</a></li></ul></section>
+<section aria-labelledby="startT"><h2 id="startT">A few to start with</h2><ul class="grid">${genDeck.slice(0, 12).map(card).join("")}</ul></section>
+<section aria-labelledby="faqT"><h2 id="faqT">Questions</h2>
+<dl class="faq">${genFaq.map(([q, a]) => `<dt>${esc(q)}</dt><dd>${esc(a)}</dd>`).join("")}</dl></section>`,
+    ld: [crumbLd([["What to make for dinner", "/what-to-make-for-dinner/"]]), { "@type": "FAQPage", mainEntity: genFaq.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }],
+  }));
+
+  // ---------- Recipe swipe apps compared (comparison pages are what AI answers cite most for "is there an app that...") ----------
+  // Facts about other apps come from their own sites and App Store listings, checked November 2026. Re-check before editing.
+  const CMP_CHECKED = "November 2026";
+  const apps = [
+    ["forks.", "Web: any phone or computer, nothing to install", "Yes, up to 8 people swipe the same 12 dinners", "Free", `Links to ${list(sources)}`],
+    ["Dinners", "iPhone app", "Yes, a household swipes and matches", "Free to start, one-time purchase for filters", "Its own catalog"],
+    ["WhatDinner", "iPhone app", "Yes, couples get a daily set to swipe", "Subscription", "Its own catalog"],
+    ["Cloche", "Not launched yet (waitlist)", "Planned, for couples and families", "Subscription planned", "Not yet known"],
+    ["Plaite, Mori, Meal Swipe and similar", "iPhone apps", "Mostly no, built for one person", "Varies, often subscription", "Varies"],
+  ];
+  const cmpFaq = [
+    ["Is there an app like Tinder for recipes?", `Yes, several. forks is one that runs in a web browser, so it works on any phone or computer with nothing to install. You swipe right on recipes from ${list(sources)} to keep them and left to pass.`],
+    ["Which recipe swipe app works for couples?", "forks, Dinners and WhatDinner all let two people swipe and see matches. forks is free, needs no account for the people you invite, and works for up to 8 people in a round."],
+    ["Is there a free recipe swipe app without a subscription?", "forks is free with no subscription and no ads. Several iPhone swipe apps charge a subscription or a one-time fee for filters."],
+    ["How is a swipe app different from Mealime or Paprika?", "Meal planners and recipe boxes like Mealime, Paprika and AnyList are for organizing recipes you already chose. A swipe app helps you choose: it shows one idea at a time so you can decide fast, alone or together."],
+  ];
+  fs.mkdirSync(path.join(ROOT, "compare"), { recursive: true });
+  fs.writeFileSync(path.join(ROOT, "compare", "index.html"), page({
+    title: "Tinder for recipes: swipe apps for deciding dinner, compared | forks.", canonical: `${ORIGIN}/compare/`,
+    desc: "Recipe swipe apps compared: forks, Dinners, WhatDinner, Cloche and others. Which work on the web, which let couples match on dinner, and what they cost.",
+    body: `${crumbs([["Recipe swipe apps compared", "/compare/"]])}
+<section class="col-head">
+  <h1>Recipe swipe apps, compared<span class="dot">.</span></h1>
+  <p>Apps that work like Tinder for recipes show one dish at a time: swipe right to keep it, left to pass. Here's how the ones people ask about differ. We make forks, so weigh that, and check each app's own site for the latest.</p>
+</section>
+<section aria-labelledby="cmpT"><h2 id="cmpT">At a glance</h2>
+<div class="cmp-wrap" role="region" aria-labelledby="cmpT" tabindex="0"><table class="cmp">
+  <thead><tr><th scope="col">App</th><th scope="col">Where it runs</th><th scope="col">Decide together</th><th scope="col">Cost</th><th scope="col">Recipes</th></tr></thead>
+  <tbody>${apps.map(([n, ...cells], i) => `<tr${i === 0 ? ' class="cmp-us"' : ""}><th scope="row">${esc(n)}</th>${cells.map((x, j) => `<td data-label="${["Where it runs", "Decide together", "Cost", "Recipes"][j]}">${esc(x)}</td>`).join("")}</tr>`).join("")}</tbody>
+</table></div>
+<p class="cmp-note">Checked ${CMP_CHECKED} from each app's own site and App Store listing.</p></section>
+<section aria-labelledby="pickT"><h2 id="pickT">Which one fits</h2>
+<dl class="faq">
+  <dt>You want to start right now, on any device</dt><dd>forks runs in the browser, so there's nothing to download. <a href="/">Start swiping</a>.</dd>
+  <dt>You and a partner can't agree on dinner</dt><dd>forks, Dinners and WhatDinner all match two people. forks lets the other person join from a link with no account. <a href="/swipe-together/">See how it works</a>.</dd>
+  <dt>You already know what you want to cook</dt><dd>A meal planner or recipe box like Mealime, Paprika or AnyList is the better tool for organizing and shopping.</dd>
+</dl></section>
+<section aria-labelledby="faqT"><h2 id="faqT">Questions</h2>
+<dl class="faq">${cmpFaq.map(([q, a]) => `<dt>${esc(q)}</dt><dd>${esc(a)}</dd>`).join("")}</dl></section>`,
+    ld: [crumbLd([["Recipe swipe apps compared", "/compare/"]]), { "@type": "FAQPage", mainEntity: cmpFaq.map(([q, a]) => ({ "@type": "Question", name: q, acceptedAnswer: { "@type": "Answer", text: a } })) }],
+  }));
+
   // ---------- sitemap ----------
   const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null);
   const today = new Date().toISOString().slice(0, 10);
   const urls = [
     [`${ORIGIN}/`, today, "daily", "1.0"],
     [`${ORIGIN}/swipe-together/`, null, "monthly", "0.8"],
+    [`${ORIGIN}/what-to-make-for-dinner/`, today, "daily", "0.8"],
+    [`${ORIGIN}/compare/`, null, "monthly", "0.7"],
     [`${ORIGIN}/recipes/`, today, "weekly", "0.8"],
     ...cols.map((c) => [`${ORIGIN}/recipes/${c.slug}/`, today, "weekly", "0.7"]),
     ...recipes.map((r) => [`${ORIGIN}/s/${r.id}/`, day(r.published_at || r.created_at), "monthly", "0.6"]),

@@ -38,7 +38,7 @@ def req(method, url, body=None, headers=HEADERS):
 
 def files():
     out = list(APP)
-    for d in ("og", "s", "recipes", "swipe-together"):
+    for d in ("og", "s", "recipes", "swipe-together", "what-to-make-for-dinner", "compare"):
         for base, _, names in os.walk(os.path.join(ROOT, d)):
             out += [os.path.relpath(os.path.join(base, n), ROOT) for n in names]
     return sorted(out)
