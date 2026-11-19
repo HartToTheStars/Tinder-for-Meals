@@ -24,7 +24,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/styles.css?v=87" />
+<link rel="stylesheet" href="/styles.css?v=88" />
 </head>
 <body class="home">
 <div class="app">
@@ -224,8 +224,22 @@
   </form>
 </div>
 
+<!-- Made this!: celebrate, then an optional private note -->
+<div class="break" id="madeSheet" hidden>
+  <form class="break-sheet made-sheet" id="madeForm" role="dialog" aria-modal="true" aria-labelledby="madeTitle" novalidate>
+    <button class="sheet-x" id="madeClose" type="button" aria-label="Close"></button>
+    <div class="made-icon" id="madeIcon"></div>
+    <h3 id="madeTitle">You made it<span class="bang">!</span></h3>
+    <p id="madeWhat"></p>
+    <label class="made-field" for="madeNote"><span class="made-lbl">Add a note <small>(optional)</small></span></label>
+    <textarea id="madeNote" rows="3" maxlength="1000" placeholder="How did it go? What would you change next time?"></textarea>
+    <small class="made-priv">Only you see your notes.</small>
+    <button class="btn break-go" id="madeSave" type="submit">Save</button>
+  </form>
+</div>
+
 <div class="toast" id="toast" role="status"></div>
 
-<script type="module" src="/app.js?v=93"></script>
+<script type="module" src="/app.js?v=94"></script>
 </body>
 </html>

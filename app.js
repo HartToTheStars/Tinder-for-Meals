@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-import { icon } from "/icons.js?v=50";
+import { icon } from "/icons.js?v=51";
 
 const SUPABASE_URL = "https://dmwsylofgfocmbqvmgfe.supabase.co";
 // Public anon key (safe to ship; access is governed by RLS).
@@ -94,7 +94,7 @@ const clean = (r) => ({
   image: r.image?.replace(/^http:\/\//, "https://").replace(/^(https:\/\/[^/]+)\/www\.[^/]+\//, "$1/"),
 });
 // Just what the UI needs, for storing guest keeps on the device.
-const slim = (r) => ({ id: r.id, url: r.url, title: r.title, description: r.description, image: r.image, source: r.source, category: r.category, tags: r.tags });
+const slim = (r) => ({ id: r.id, url: r.url, title: r.title, description: r.description, image: r.image, source: r.source, category: r.category, tags: r.tags, made_at: r.made_at, made_count: r.made_count, made_note: r.made_note });
 const preload = (src) => { const i = new Image(); i.referrerPolicy = "no-referrer"; i.src = src; };
 const tagIcons = (r, max = 3) => (r.tags || []).filter((t) => TAG[t])
   .sort((a, b) => TAGS.findIndex((x) => x[0] === a) - TAGS.findIndex((x) => x[0] === b)).slice(0, max);
@@ -150,9 +150,18 @@ const store = {
   async kept() {
     if (!state.user) return guest.kept.map(clean);
     const { data, error } = await db.from("meals_user_swipes")
-      .select("swiped_at, recipe:meals_recipes(*)").eq("liked", true).order("swiped_at", { ascending: false });
+      .select("swiped_at, made_at, made_count, made_note, recipe:meals_recipes(*)").eq("liked", true).order("swiped_at", { ascending: false });
     if (error) { console.error(error); return state.kept; }
-    return data.filter((d) => d.recipe).map((d) => clean({ ...d.recipe, swiped_at: d.swiped_at }));
+    return data.filter((d) => d.recipe).map((d) => clean({ ...d.recipe, swiped_at: d.swiped_at, made_at: d.made_at, made_count: d.made_count || 0, made_note: d.made_note }));
+  },
+  // Made this!: when you last made it, how many times, and your private note.
+  async made(id, m) {
+    const row = { made_at: m.made_at || null, made_count: m.made_count || 0, made_note: m.made_note || null };
+    if (state.user) return (await db.from("meals_user_swipes").update(row).eq("recipe_id", id)).error;
+    const g = guest.kept.find((r) => r.id === id);
+    if (g) Object.assign(g, row);
+    saveGuest();
+    return null;
   },
 };
 
@@ -546,7 +555,7 @@ function bindDrag(el) {
   el.addEventListener("pointercancel", end);
 }
 
-const sheetOpen = () => ["#break", "#save", "#acct", "#people", "#landing", "#nameSheet", "#together", "#mailPrev", "#moodPop"].some((s) => !$(s).hidden);
+const sheetOpen = () => ["#break", "#save", "#acct", "#people", "#landing", "#nameSheet", "#together", "#mailPrev", "#moodPop", "#madeSheet"].some((s) => !$(s).hidden);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const buzz = (pattern) => { try { navigator.vibrate?.(pattern); } catch (e) { /* not supported */ } };
@@ -770,17 +779,18 @@ function renderKept() {
     const t = tagIcons(r, 4);
     return `
     <li class="swipe-row" data-id="${r.id}">
-      <span class="swipe-bg swipe-open" aria-hidden="true">${icon("party-popper")}<b class="sw-label">Celebrate</b><b class="sw-big">Go big!</b></span>
+      <span class="swipe-bg swipe-open" aria-hidden="true">${icon("chef-hat")}<b class="sw-label">Made this!</b><b class="sw-big">Nailed it!</b></span>
       <span class="swipe-bg swipe-del" aria-hidden="true"><b>Remove</b>${icon("x")}</span>
       <div class="item${r.id === state.freshId ? " fresh" : ""}" data-id="${r.id}" style="animation-delay:${r.id === state.freshId ? 0 : Math.min(i, 12) * 20}ms">
-      <img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" />
+      <span class="thumb"><img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" draggable="false" />${r.made_count ? `<span class="made-badge" role="img" aria-label="You made this">${icon("chef-hat")}</span>` : ""}</span>
       <a href="${esc(r.url)}" target="_blank" rel="noopener" draggable="false">
         <h4>${highlight(r.title, state.query.split(/\s+/).filter(Boolean))}</h4>
         <small>${esc(r.source)}${t.length ? `<span class="mini">${t.map((k) => `<span title="${TAG[k].l}">${icon(TAG[k].i)}</span>`).join("")}</span>` : ""}</small>
+        ${r.made_count ? `<span class="made-line">${madeLine(r)}</span>` : ""}
+        ${r.made_note ? `<span class="made-note">“${esc(r.made_note)}”</span>` : ""}
         ${keptByLine(r)}
       </a>
-      <button class="sh" aria-label="Share ${esc(r.title)}" title="Share">${icon("share")}</button>
-      <button class="rm" aria-label="Remove ${esc(r.title)}" title="Remove">${icon("x")}</button>
+      <button class="more" type="button" aria-label="Options for ${esc(r.title)}" aria-haspopup="menu" title="More">${icon("ellipsis")}</button>
       </div>
     </li>`;
   }).join("");
@@ -807,12 +817,9 @@ function renderKept() {
     : "Start swiping";
 }
 
-$("#list").addEventListener("click", async (e) => {
-  const share = e.target.closest(".sh");
-  if (share) return shareRecipe(state.kept.find((r) => r.id === share.closest(".item").dataset.id));
-  const btn = e.target.closest(".rm");
-  if (!btn) return;
-  removeKeep(btn.closest(".swipe-row"));
+$("#list").addEventListener("click", (e) => {
+  const btn = e.target.closest(".more");
+  if (btn) openKeepMenu(btn);
 });
 
 async function removeKeep(row) {
@@ -842,7 +849,134 @@ async function removeKeep(row) {
   updateAcct();
 }
 
-// Keeps rows: swipe left to remove (with Undo), swipe right to celebrate (confetti). Vertical scrolling still works.
+// ---------- Made this! ----------
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function madeLine(r) {
+  if (r.made_count > 1) return `Made it ${r.made_count} times`;
+  const d = new Date(r.made_at), now = new Date();
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const ago = Math.round((day(now) - day(d)) / 864e5);
+  if (ago <= 0) return "Made it today";
+  if (ago === 1) return "Made it yesterday";
+  return `Made it ${MONTHS[d.getMonth()]} ${d.getDate()}${d.getFullYear() !== now.getFullYear() ? `, ${d.getFullYear()}` : ""}`;
+}
+const madeOf = (r) => ({ made_at: r.made_at || null, made_count: r.made_count || 0, made_note: r.made_note || null });
+let madeCtx = null; // { r, before, again }
+async function setMade(r, m) {
+  Object.assign(r, m);
+  renderKept();
+  const err = await store.made(r.id, m);
+  if (err) { console.error(err); toast("Couldn't save that"); }
+  return !err;
+}
+// Swipe right or "Made this!" in the menu: count it now, then offer the note sheet.
+async function markMade(r) {
+  const before = madeOf(r);
+  madeCtx = { r, before, noteOnly: false };
+  setMade(r, { made_at: new Date().toISOString(), made_count: before.made_count + 1, made_note: before.made_note });
+  openMadeSheet(r, false);
+}
+function editMadeNote(r) {
+  madeCtx = { r, before: madeOf(r), noteOnly: true };
+  openMadeSheet(r, true);
+}
+function openMadeSheet(r, noteOnly) {
+  $("#madeIcon").innerHTML = icon("chef-hat");
+  $("#madeTitle").innerHTML = noteOnly ? "Your note<span class=\"bang\">.</span>" : (r.made_count > 1 ? "Made it again<span class=\"bang\">!</span>" : "You made it<span class=\"bang\">!</span>");
+  $("#madeWhat").textContent = `${r.title}, ${r.source}`;
+  $("#madeIcon").hidden = noteOnly;
+  const ta = $("#madeNote");
+  ta.value = r.made_note || "";
+  openSheet("#madeSheet");
+  // Don't pop the phone keyboard over the celebration; desktop gets the cursor in the box.
+  if (noteOnly || matchMedia("(hover: hover) and (pointer: fine)").matches) setTimeout(() => ta.focus(), 260);
+}
+function closeMade(save) {
+  const ctx = madeCtx;
+  madeCtx = null;
+  closeSheet("#madeSheet");
+  if (!ctx) return;
+  const { r, before, noteOnly } = ctx;
+  const note = $("#madeNote").value.trim().slice(0, 1000) || null;
+  const changed = save && note !== (r.made_note || null);
+  if (changed) setMade(r, { ...madeOf(r), made_note: note });
+  if (noteOnly && !changed) return;
+  const undo = { label: "Undo", run: () => setMade(r, before) };
+  toast(noteOnly ? "Note saved" : changed && note ? "Saved with your note" : "Marked as made", undo);
+}
+$("#madeForm").addEventListener("submit", (e) => { e.preventDefault(); closeMade(true); });
+$("#madeClose").addEventListener("click", () => closeMade(false));
+$("#madeSheet").addEventListener("click", (e) => { if (e.target === $("#madeSheet")) closeMade(false); });
+$("#madeNote").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); closeMade(true); }
+  if (e.key === "Escape") { e.preventDefault(); closeMade(false); }
+});
+
+// ⋯ on a keep: Share, Made this!, Delete. A small popover next to the button.
+let keepMenu = null;
+function closeKeepMenu(focusBack = false) {
+  if (!keepMenu) return;
+  const { el, btn } = keepMenu;
+  keepMenu = null;
+  el.remove();
+  btn.setAttribute("aria-expanded", "false");
+  btn.classList.remove("is-open");
+  if (focusBack) btn.focus();
+}
+function openKeepMenu(btn) {
+  const wasOpen = keepMenu?.btn === btn;
+  closeKeepMenu();
+  if (wasOpen) return;
+  const row = btn.closest(".swipe-row");
+  const r = state.kept.find((x) => x.id === row.dataset.id);
+  if (!r) return;
+  const el = document.createElement("div");
+  el.className = "keep-menu";
+  el.setAttribute("role", "menu");
+  el.setAttribute("aria-label", r.title);
+  el.innerHTML = `
+    <button type="button" role="menuitem" data-a="share">${icon("share")}Share</button>
+    <button type="button" role="menuitem" class="km-made" data-a="made">${icon("chef-hat")}${r.made_count ? "Made it again" : "Made this!"}</button>
+    ${r.made_count ? `<button type="button" role="menuitem" data-a="note">${icon("pencil")}${r.made_note ? "Edit note" : "Add a note"}</button>` : ""}
+    <hr />
+    <button type="button" role="menuitem" class="km-del" data-a="del">${icon("trash-2")}Delete</button>`;
+  document.body.append(el);
+  const b = btn.getBoundingClientRect(), h = el.offsetHeight, w = el.offsetWidth;
+  const below = b.bottom + 6 + h < window.innerHeight - 12;
+  el.style.top = `${below ? b.bottom + 6 : Math.max(12, b.top - h - 6)}px`;
+  el.style.left = `${Math.max(12, Math.min(b.right - w, window.innerWidth - w - 12))}px`;
+  el.classList.add(below ? "from-top" : "from-bottom");
+  btn.setAttribute("aria-expanded", "true");
+  btn.classList.add("is-open");
+  keepMenu = { el, btn };
+  el.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-a]")?.dataset.a;
+    if (!a) return;
+    closeKeepMenu();
+    if (a === "share") shareRecipe(r);
+    else if (a === "made") {
+      const box = row.getBoundingClientRect();
+      confetti(box.left + box.width / 2, box.top + box.height / 2, 160, { power: 1.15 });
+      buzz([12, 50, 18]);
+      setTimeout(() => markMade(r), 380);
+    } else if (a === "note") editMadeNote(r);
+    else if (a === "del") removeKeep(row);
+  });
+  el.addEventListener("keydown", (e) => {
+    const items = [...el.querySelectorAll("[role=menuitem]")];
+    const i = items.indexOf(document.activeElement);
+    if (e.key === "Escape") { e.preventDefault(); closeKeepMenu(true); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if (e.key === "Tab") closeKeepMenu();
+  });
+  el.querySelector("button").focus({ preventScroll: true });
+}
+document.addEventListener("pointerdown", (e) => { if (keepMenu && !keepMenu.el.contains(e.target) && !keepMenu.btn.contains(e.target)) closeKeepMenu(); }, true);
+window.addEventListener("resize", () => closeKeepMenu());
+document.addEventListener("scroll", () => closeKeepMenu(), true);
+
+// Keeps rows: swipe left to remove (with Undo), swipe right for Made this! (confetti, then the note sheet). Vertical scrolling still works.
 (() => {
   const list = $("#list");
   let drag = null, eatClick = false;
@@ -872,7 +1006,7 @@ async function removeKeep(row) {
   };
   list.addEventListener("pointerdown", (e) => {
     const item = e.target.closest(".swipe-row > .item");
-    if (!item || e.button > 0 || e.target.closest(".sh, .rm")) return;
+    if (!item || e.button > 0 || e.target.closest(".more")) return;
     const row = item.parentElement;
     drag = { item, row, open: row.querySelector(".swipe-open"), del: row.querySelector(".swipe-del"), x: e.clientX, y: e.clientY, dx: 0, on: false, pid: e.pointerId };
   });
@@ -918,6 +1052,8 @@ async function removeKeep(row) {
         confetti(x, y, 160, { power: 1.15 });
         buzz([12, 50, 18]);
       }
+      const r = state.kept.find((k) => k.id === d.row.dataset.id);
+      if (r) setTimeout(() => markMade(r), 380);
     }
     d.row.classList.remove("full");
     settle(d);
@@ -1634,6 +1770,8 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (!$("#mailPrev").hidden) { if (e.key === "Escape") closeSheet("#mailPrev"); return; }
+  if (!$("#madeSheet").hidden) { if (e.key === "Escape") closeMade(false); return; }
+  if (keepMenu) return;
   if (!$("#moodPop").hidden) { if (e.key === "Escape") closeMood(); return; }
   if (!$("#break").hidden) { if (e.key === "Escape") $("#breakGo").click(); return; }
   if (!$("#save").hidden) { if (e.key === "Escape") skipSave(); return; }
