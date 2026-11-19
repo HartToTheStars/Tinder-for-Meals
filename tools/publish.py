@@ -16,7 +16,7 @@ import hashlib, json, mimetypes, os, sys, time, urllib.error, urllib.request
 PROD_SLUG = "humble-aura-cbq3"        # https://forkslist.com
 STAGING_SLUG = "bright-jasper-8752"  # https://bright-jasper-8752.here.now (open link, not indexed)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-APP = ["index.html", "styles.css", "app.js", "icons.js", "privacy.html", "sources.html", "lab.html", "robots.txt", "sitemap.xml", "llms.txt"]
+APP = ["index.html", "styles.css", "app.js", "icons.js", "privacy.html", "sources.html", "lab.html", "robots.txt", "sitemap.xml", "llms.txt", "seo.css"]
 KEY = os.environ.get("HERENOW_API_KEY", "proxy-injected")
 HEADERS = {"content-type": "application/json", "X-HereNow-Client": "claude-code/direct-api", "Authorization": f"Bearer {KEY}"}
 API = "https://here.now/api/v1/publish"
@@ -38,7 +38,7 @@ def req(method, url, body=None, headers=HEADERS):
 
 def files():
     out = list(APP)
-    for d in ("og", "s"):
+    for d in ("og", "s", "recipes", "swipe-together"):
         for base, _, names in os.walk(os.path.join(ROOT, d)):
             out += [os.path.relpath(os.path.join(base, n), ROOT) for n in names]
     return sorted(out)

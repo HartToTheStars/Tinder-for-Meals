@@ -876,3 +876,8 @@ a.src-row:hover { background: var(--bg); }
 #madeNote:focus { border-color: var(--basil); box-shadow: 0 0 0 4px rgb(63 155 107 / .16); }
 .made-priv { display: block; text-align: left; margin-top: 8px; font-size: 12px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .keep-menu, .made-icon { animation: none; } }
+
+/* Footer links to the crawlable recipe pages */
+.foot-links { display: inline-flex; gap: 14px; margin-left: 14px; }
+.foot-links a { color: inherit; }
+@media (max-width: 520px) { .foot-links { display: flex; justify-content: center; margin: 6px 0 0; } }

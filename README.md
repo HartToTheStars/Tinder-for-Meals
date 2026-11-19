@@ -25,7 +25,15 @@ Every 10 swipes the app calls `meals_refine()`, which recomputes `meals_taste`: 
 - Swipes are per user in `meals_user_swipes` (RLS: own rows only). The old shared `meals_swipes` table is kept as a closed backup; its rows were copied to Kelly.
 
 ## Share previews
-`tools/og/render.js` renders 1200x630 preview images (og/<id>.jpg, og/site.jpg) with headless Chromium and writes a share page per recipe at s/<id>/index.html with Open Graph tags. Re-run it after a harvest to cover new recipes, then publish (see Releasing). Recipes without a page share as /?r=<id> (generic site preview).
+`tools/og/render.js` renders 1200x630 preview images (og/<id>.jpg, og/site.jpg) with headless Chromium. Re-run it after a harvest to cover new recipes.
+
+## Search pages (SEO)
+`node tools/seo/build.js` (no browser needed) writes the crawlable site from the recipe table, then publish:
+- `s/<id>/`: a real page per recipe (photo, source credit, tags, "Get the recipe" out to the publisher, "Swipe more like this" into the app, related recipes). These are also the share links. Recipes that drop off the list keep a noindex redirect so old shares still work.
+- `recipes/` and `recipes/<slug>/`: collections by course, diet/time, source and useful combinations (at least 6 recipes each).
+- `swipe-together/`: explains Swipe with someone, with an FAQ (FAQPage structured data).
+- `sitemap.xml` and `og/index.json`.
+App deep links used by these pages: `/?cat=main&want=vegetarian,quick` opens the deck pre-filtered, `/?start=together` opens Swipe with someone. `robots.txt` and `llms.txt` are hand-written.
 
 ## Profile links
 Every profile has a random `share_code` (3 letters + 4 digits). `forkslist.com/<code>` opens that person's keeps with a Follow button (here.now SPA mode serves index.html for unknown paths; assets use absolute paths). Profiles are unlisted: never shown in discovery, but anyone with the link can see and follow. Recipe shares carry `?by=<code>`. Handles only resolve for public/featured lists (Kelly), so first names can't be guessed.

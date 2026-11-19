@@ -112,37 +112,6 @@ async function shoot(page, html, file) {
   console.log(`done: ${done} rendered, ${noPhoto} without a photo`);
   await browser.close();
 
-  // Share pages: /s/<id>/ carries the recipe's preview tags for iMessage, Slack, etc., then hops into the app.
-  const ORIGIN = "https://forkslist.com";
-  const ready = recipes.filter((r) => fs.existsSync(path.join(OUT, `${r.id}.jpg`)));
-  for (const r of ready) {
-    const dir = path.join(OUT, "..", "s", r.id);
-    fs.mkdirSync(dir, { recursive: true });
-    const title = `${r.title} · forks.`;
-    const desc = `From ${r.source}. Swipe right on dinner, meet your next meal.`;
-    fs.writeFileSync(path.join(dir, "index.html"), `<!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(title)}</title>
-<meta name="description" content="${esc(desc)}">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="forks.">
-<meta property="og:title" content="${esc(r.title)}">
-<meta property="og:description" content="${esc(desc)}">
-<meta property="og:url" content="${ORIGIN}/s/${r.id}/">
-<meta property="og:image" content="${ORIGIN}/og/${r.id}.jpg">
-<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="${esc(r.title)}">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${esc(r.title)}">
-<meta name="twitter:description" content="${esc(desc)}">
-<meta name="twitter:image" content="${ORIGIN}/og/${r.id}.jpg">
-<link rel="canonical" href="${ORIGIN}/s/${r.id}/">
-<script>location.replace("/?r=${r.id}" + (new URLSearchParams(location.search).get("by") ? "&by=" + encodeURIComponent(new URLSearchParams(location.search).get("by")) : ""));</script>
-<noscript><meta http-equiv="refresh" content="0;url=/?r=${r.id}"></noscript>
-</head><body style="background:#f7f1e8"></body></html>
-`);
-  }
-  fs.writeFileSync(path.join(OUT, "index.json"), JSON.stringify(ready.map((r) => r.id)));
-  console.log(`${ready.length} share pages`);
+  // Share pages (s/<id>/), collections, the sitemap and og/index.json are built by tools/seo/build.js. Run it next.
+  console.log("now run: node tools/seo/build.js");
 })();

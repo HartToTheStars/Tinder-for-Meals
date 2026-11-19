@@ -1832,11 +1832,16 @@ const v = ls.get("forks:view", "swipe");
 if (v === "kept") show("kept");
 const c = ls.get("forks:cat", "");
 if (c in CATS) state.cat = c;
+// Deep links from the recipe and collection pages: /?cat=main&want=vegetarian,quick opens the deck pre-filtered.
+const deepQ = new URLSearchParams(location.search);
+if (deepQ.has("cat") && deepQ.get("cat") in CATS) { state.cat = deepQ.get("cat"); ls.set("forks:cat", state.cat); }
 const kc = ls.get("forks:keptCat", "");
 if (kc in CATS) state.keptCat = kc;
 renderCats($("#cats"), state.cat, false);
 renderCats($("#keptCats"), state.keptCat, true);
 state.want = loadSet("forks:want");
+if (deepQ.has("want")) { state.want = new Set(deepQ.get("want").split(",").filter((t) => TAG[t])); saveSet("forks:want", state.want); }
+if (deepQ.has("cat") || deepQ.has("want")) show("swipe");
 state.keptWant = loadSet("forks:keptWant", isTag);
 renderTagRow($("#tags"), state.want, onWantChange);
 renderMood();
@@ -2427,10 +2432,11 @@ function tgReveal() {
   // Links from the Sunday email: ?unsub=<token>, ?follow=<user id>, ?view=followers
   const isId = (v) => /^[0-9a-f-]{36}$/i.test(v || "");
   const unsub = params.get("unsub"), followId = params.get("follow"), view = params.get("view");
-  const withCode = params.get("with");
+  const withCode = params.get("with"), startTogether = params.get("start") === "together";
+  const deep = params.has("cat") || params.has("want");
   if (isId(followId)) ls.set("forks:pendingFollow", followId);
   if (view === "followers") ls.set("forks:pendingView", "followers");
-  if ((shared || sharedUser || unsub || followId || view || withCode) && !hash) history.replaceState(null, "", location.pathname);
+  if ((shared || sharedUser || unsub || followId || view || withCode || startTogether || deep) && !hash) history.replaceState(null, "", location.pathname);
   let merge = false;
   if (hash) {
     history.replaceState(null, "", location.pathname);
@@ -2441,6 +2447,7 @@ function tgReveal() {
   const { data } = await db.auth.getSession();
   await setUser(data.session?.user ?? null, { merge });
   if (withCode && /^[0-9a-f]{8}$/i.test(withCode)) openTogether(withCode.toLowerCase());
+  else if (startTogether) $("#withBtn").click();
   else tgResumeInBackground();
   if (isId(unsub)) {
     const { data: ok } = await db.rpc("meals_sunday_unsubscribe", { p_token: unsub });

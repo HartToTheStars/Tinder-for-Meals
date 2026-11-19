@@ -11,6 +11,8 @@
 
 ## Links
 - [forks home](https://forkslist.com/): start swiping
+- [Recipe collections](https://forkslist.com/recipes/): dinners, desserts, 30-minute, vegetarian, vegan, gluten-free, dairy-free, high-protein and kid-friendly recipes, plus collections by source
+- [Decide dinner together](https://forkslist.com/swipe-together/): how Swipe with someone works, with FAQs
 - [Sources](https://forkslist.com/sources.html): the recipe sites forks pulls from, and how to suggest more
 - [Privacy](https://forkslist.com/privacy.html): what forks keeps and why
 
