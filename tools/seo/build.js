@@ -76,7 +76,21 @@ function page({ title, desc, canonical, image = `${ORIGIN}/og/site.jpg`, imageAl
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="${CSS}">
-${ldTag}${extraHead}</head>
+${ldTag}${extraHead}<script>
+/* Google Analytics: production only, no private URL params or profile codes, no ad features. */
+(function () {
+  if (!/(^|[.])forkslist[.]com$/.test(location.hostname)) return;
+  var id = "G-GY7HMLN3R5", u = new URL(location.href), keep = new URLSearchParams();
+  u.searchParams.forEach(function (v, k) { if (/^(cat|want|start|utm_[a-z]+)$/.test(k)) keep.set(k, v); });
+  var path = /^[/][A-Za-z]{3}[0-9]{4}[/]?$/.test(u.pathname) ? "/profile" : u.pathname, q = keep.toString();
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { dataLayer.push(arguments); };
+  gtag("js", new Date());
+  gtag("config", id, { page_location: u.origin + path + (q ? "?" + q : ""), allow_google_signals: false, allow_ad_personalization_signals: false });
+  var s = document.createElement("script"); s.async = true; s.src = "https://www.googletagmanager.com/gtag/js?id=" + id; document.head.appendChild(s);
+})();
+</script>
+</head>
 <body>
 <header class="top">${LOGO}<a class="top-go" href="/">Start swiping</a></header>
 <main>

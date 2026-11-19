@@ -25,6 +25,20 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/seo.css?v=1">
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Recipes","item":"https://forkslist.com/recipes/"},{"@type":"ListItem","position":2,"name":"Dinner recipes","item":"https://forkslist.com/recipes/dinners/"},{"@type":"ListItem","position":3,"name":"Roasted Sweet Potatoes","item":"https://forkslist.com/s/8fe7e66e-16be-4521-9a42-5b6c42197be2/"}]},{"@type":"WebPage","name":"Roasted Sweet Potatoes","url":"https://forkslist.com/s/8fe7e66e-16be-4521-9a42-5b6c42197be2/","description":"Deeply browned outside, creamy inside, and ready to dress up however you like. Roasted Sweet Potatoes from Bon Appétit. See it on forks, then cook it from Bon Appétit.","primaryImageOfPage":"https://assets.bonappetit.com/photos/6377aa0b5c906cd90e11d0bf/16:9/w_1280,c_limit/1118-sweet-potatoes-lede-2.jpg","isBasedOn":"https://www.bonappetit.com/recipe/roasted-sweet-potatoes","about":{"@type":"Thing","name":"Roasted Sweet Potatoes"},"publisher":{"@type":"Organization","name":"forks.","url":"https://forkslist.com"}}]}</script>
+<script>
+/* Google Analytics: production only, no private URL params or profile codes, no ad features. */
+(function () {
+  if (!/(^|[.])forkslist[.]com$/.test(location.hostname)) return;
+  var id = "G-GY7HMLN3R5", u = new URL(location.href), keep = new URLSearchParams();
+  u.searchParams.forEach(function (v, k) { if (/^(cat|want|start|utm_[a-z]+)$/.test(k)) keep.set(k, v); });
+  var path = /^[/][A-Za-z]{3}[0-9]{4}[/]?$/.test(u.pathname) ? "/profile" : u.pathname, q = keep.toString();
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { dataLayer.push(arguments); };
+  gtag("js", new Date());
+  gtag("config", id, { page_location: u.origin + path + (q ? "?" + q : ""), allow_google_signals: false, allow_ad_personalization_signals: false });
+  var s = document.createElement("script"); s.async = true; s.src = "https://www.googletagmanager.com/gtag/js?id=" + id; document.head.appendChild(s);
+})();
+</script>
 </head>
 <body>
 <header class="top"><a class="logo" href="/" aria-label="forks home">forks<span>.</span></a><a class="top-go" href="/">Start swiping</a></header>

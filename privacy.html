@@ -11,6 +11,20 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css?v=61" />
+<script>
+/* Google Analytics: production only, no private URL params or profile codes, no ad features. */
+(function () {
+  if (!/(^|[.])forkslist[.]com$/.test(location.hostname)) return;
+  var id = "G-GY7HMLN3R5", u = new URL(location.href), keep = new URLSearchParams();
+  u.searchParams.forEach(function (v, k) { if (/^(cat|want|start|utm_[a-z]+)$/.test(k)) keep.set(k, v); });
+  var path = /^[/][A-Za-z]{3}[0-9]{4}[/]?$/.test(u.pathname) ? "/profile" : u.pathname, q = keep.toString();
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { dataLayer.push(arguments); };
+  gtag("js", new Date());
+  gtag("config", id, { page_location: u.origin + path + (q ? "?" + q : ""), allow_google_signals: false, allow_ad_personalization_signals: false });
+  var s = document.createElement("script"); s.async = true; s.src = "https://www.googletagmanager.com/gtag/js?id=" + id; document.head.appendChild(s);
+})();
+</script>
 </head>
 <body>
 <div class="app">
@@ -43,9 +57,10 @@
       <li><strong>Resend</strong> delivers sign-in emails and the Sunday Dinner Pick email, and forwards site suggestions from the <a href="/sources.html">sources page</a> to us. If you add your email to a suggestion, it's only used to reply to you.</li>
       <li><strong>here.now</strong> hosts the site.</li>
       <li><strong>Google Fonts</strong> and <strong>jsDelivr</strong> serve the fonts and one code library.</li>
+      <li><strong>Google Analytics</strong> gives us anonymous usage stats: how many people visit, which pages they open, and roughly where they come from. It sets its own cookies to tell repeat visits apart. It never gets your email, name, swipes or keeps, and private links (sign-in, unsubscribe, profile links) are stripped before anything is sent. Ad features are off.</li>
       <li>Recipe photos load straight from the sites that published them (Bon Appétit, Smitten Kitchen and Half Baked Harvest). Tapping a recipe takes you to their site, where their own policies apply.</li>
     </ul>
-    <p>None of them get your data to use for themselves, and there are no ads, ad trackers, or analytics cookies here.</p>
+    <p>None of them get your data to use for themselves, and there are no ads or ad trackers here.</p>
 
     <h3>Lists, follows and sharing</h3>
     <ul>
@@ -63,7 +78,7 @@
     <h3>Leaving</h3>
     <p>Signed in? Tap the account button, then <strong>Delete my account</strong>. Your email and every swipe are erased right away. Just browsing? Clearing your browser's site data for forks wipes everything.</p>
 
-    <p class="updated">Last updated November 15, 2026.</p>
+    <p class="updated">Last updated November 19, 2026.</p>
   </main>
 
   <footer class="foot">Made with <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> for Kelly</footer>
