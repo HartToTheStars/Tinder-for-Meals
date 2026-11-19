@@ -616,6 +616,8 @@ async function stampSlam(el, stamp, s, f, after = restack) {
   ], { duration: dragged ? 420 : 480, easing: "cubic-bezier(.22,.61,.36,1)", fill: "forwards" }).finished;
 }
 
+const track = (name, props) => { try { window.forksTrack?.(name, props); } catch { /* never block the app */ } };
+
 async function swipe(liked, evt) {
   const el = topCard();
   const recipe = state.deck[state.deck.length - 1];
@@ -629,6 +631,7 @@ async function swipe(liked, evt) {
   stampSlam(el, stamp, s, evt?.pointerType ? el._fling : null).then(drop, drop);
 
   state.deck.pop();
+  track("swipe", { liked, src: "app" });
   state.history.push({ recipe, liked });
   state.round.push({ recipe, liked });
   const btn = liked ? $("#btnLike") : $("#btnNope");
@@ -1265,6 +1268,7 @@ function setSave(mode, email = "") {
   }
 }
 function openSave(mode) {
+  track("save_prompt", { mode, src: "app" });
   if (state.user || (mode === "cta" && sheetOpen())) return;
   setSave(mode);
   openSheet("#save");
@@ -1301,6 +1305,7 @@ $("#saveForm").addEventListener("submit", async (e) => {
     json = await res.json().catch(() => ({}));
   } catch { return saveError("Couldn't reach the kitchen. Try again?"); }
   $("#saveGo").classList.remove("is-busy");
+  if (res.ok && (json.status === "new" || json.status === "existing")) track("signup", { status: json.status, src: "app" });
   if (res.ok && json.status === "new") { ls.set("forks:pendingEmail", email); return setSave("sent-new", email); }
   if (res.ok && json.status === "existing") { ls.set("forks:pendingEmail", email); return setSave("sent-existing", email); }
   if (json.error === "slow_down") return saveError("We just sent you a link. Give it a minute, then try again.");
@@ -1360,6 +1365,7 @@ $("#acctSunday").addEventListener("change", async (e) => {
   const { error } = await db.rpc("meals_set_sunday_pick", { p_on: on });
   sw.disabled = false;
   if (error) { sw.checked = !on; return toast("Couldn't save that. Try again?"); }
+  track("sunday", { on });
   toast(on ? "Sunday Dinner Pick email is on" : "Sunday Dinner Pick email is off");
 });
 
@@ -1425,6 +1431,7 @@ function needName() {
 }
 $("#acctShare").addEventListener("click", async () => {
   if (needName()) return;
+  track("share", { what: "keeps" });
   try {
     if (navigator.share) { await navigator.share({ title: `${state.me.name}'s keeps on forks.`, text: `${state.me.name}'s keeps on forks. Swipe right on dinner.`, url: myLink() }); return; }
   } catch (err) { if (err?.name === "AbortError") return; }
@@ -1664,6 +1671,7 @@ async function shareRecipe(r) {
     : `${location.origin}/?r=${r.id}${by ? `&by=${by}` : ""}`;
   const text = `${r.title}. Found it on forks.`;
   try {
+    track("share", { what: "recipe" });
     if (navigator.share) { await navigator.share({ title: r.title, text, url }); return; }
   } catch (err) { if (err?.name === "AbortError") return; }
   try { await navigator.clipboard.writeText(url); toast("Link copied"); }
@@ -1908,6 +1916,7 @@ async function tgCreate(name) {
   const pid = crypto.randomUUID();
   const { data: code, error } = await db.rpc("meals_together_create", { p_participant: pid, p_name: name });
   if (error || !code) { toast("Couldn't start a round. Try again?"); return false; }
+  track("round_start");
   ls.set(`forks:tg:${code}`, pid);
   ls.set(TG_ACTIVE, code);
   await openTogether(code, { fresh: true });
@@ -2109,6 +2118,7 @@ function tgInvite() {
 }
 async function tgShareLink() {
   const text = `Help me pick a recipe? Swipe 12 on forks and we'll see which ones we both want.`;
+  track("share", { what: "round" });
   try { if (navigator.share) { await navigator.share({ title: "Help me pick a recipe", text, url: tgLink() }); return; } }
   catch (err) { if (err?.name === "AbortError") return; }
   tgCopyLink();
@@ -2322,6 +2332,7 @@ function tgThrow(liked, evt) {
 
 async function tgVote(r, liked) {
   const name = tgName() || "Someone";
+  track("round_vote", { liked });
   const { data: ok, error } = await db.rpc("meals_together_vote", { p_code: tg.code, p_participant: tg.pid, p_name: name, p_recipe: r.id, p_liked: liked });
   if (error || !ok) {
     // Put it back so it can be swiped again.

@@ -84,7 +84,9 @@
     }).catch(function () {});
   };
   function loadGuest() { var g = ls.get("forks:guest", null) || guest; g.swipes = g.swipes || {}; g.kept = g.kept || []; return (guest = g); }
+  var track = function (n, p) { try { if (window.forksTrack) window.forksTrack(n, p); } catch (e) {} };
   function record(r, liked) {
+    track("swipe", { liked: liked, src: "seo" });
     if (fresh()) { rest("POST", "?on_conflict=user_id,recipe_id", { user_id: auth.user.id, recipe_id: r.id, liked: liked, swiped_at: new Date().toISOString() }); return; }
     loadGuest();
     guest.swipes[r.id] = liked;
@@ -301,7 +303,7 @@
     openSheet("keeps");
   });
   updatePill();
-  function openApp() { ls.set("forks:view", "kept"); location.href = "/"; }
+  function openApp() { track("open_app", { from: "keeps" }); ls.set("forks:view", "kept"); location.href = "/"; }
   $(".sw-see").addEventListener("click", function () { signedIn ? openApp() : openSheet("keeps"); });
 
   // ---------- sheet: save your keeps / your keeps ----------
@@ -323,6 +325,7 @@
   function thumbs(list) { return list.slice(0, 5).map(function (r) { return '<img src="' + esc(r.image) + '" alt="" referrerpolicy="no-referrer">'; }).join(""); }
 
   function openSheet(mode) {
+    track("save_prompt", { mode: mode, src: "seo" });
     opener = document.activeElement;
     var kept = (ls.get("forks:guest", guest).kept || []), n = kept.length;
     if (mode === "save") {
@@ -377,6 +380,7 @@
       body: JSON.stringify({ email: email, origin: location.origin, guest: { liked: liked, noped: noped } })
     }).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (json) {
+        if (res.ok && (json.status === "new" || json.status === "existing")) track("signup", { status: json.status, src: "seo" });
         if (res.ok && json.status === "new") {
           ls.set("forks:pendingEmail", email);
           return sent("Saved. Check your inbox", "We sent a link to " + email + ". Tap it to finish signing in, on this phone or any other." + (keeps ? " Your keeps are already saved to your account." : ""), "mail");

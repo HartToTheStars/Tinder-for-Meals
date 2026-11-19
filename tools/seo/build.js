@@ -19,7 +19,8 @@ const ICONS = Function(`return ${fs.readFileSync(path.join(ROOT, "icons.js"), "u
 const TAG_ICON = [["kid", "baby", "Kid friendly"], ["quick", "timer", "Under 30 min"], ["protein", "drumstick", "Protein-forward"],
   ["vegetarian", "carrot", "Vegetarian"], ["vegan", "sprout", "Vegan"], ["gluten-free", "wheat-off", "Gluten-free"], ["dairy-free", "milk-off", "Dairy-free"]];
 const tagIcons = (tags) => TAG_ICON.filter(([k]) => (tags || []).includes(k)).slice(0, 3).map(([, i, l]) => [l, ICONS[i]]);
-const SWJS = "/swipe.js?v=2";
+const SWJS = "/swipe.js?v=3";
+const TRACKJS = "/track.js?v=1";
 const MIN = 6; // a collection needs at least this many recipes to get a page
 
 const JUNK = /(favorite things|weekend reads|gift guide|holiday guide|giveaway|link love|meal plan|^\d+:)/i;
@@ -81,7 +82,8 @@ function page({ title, desc, canonical, image = `${ORIGIN}/og/site.jpg`, imageAl
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="${CSS}">
-${ldTag}${extraHead}<script>
+${ldTag}${extraHead}<script src="${TRACKJS}" defer></script>
+<script>
 /* Google Analytics: production only, no private URL params or profile codes, no ad features. */
 (function () {
   if (!/(^|[.])forkslist[.]com$/.test(location.hostname)) return;

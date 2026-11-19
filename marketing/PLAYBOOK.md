@@ -31,6 +31,43 @@ on food sites at roughly $15 to $40 per 1,000 views. $500/month needs around 15,
 pageviews, or 2,000+ engaged email subscribers, or a small brand that values the audience fit over
 reach. The realistic window is 4 to 9 months from now.
 
+## Test and learn
+
+Every change is an experiment. Nothing ships without a written hypothesis, and nothing is called a win
+without numbers. Results, including losses, go in `marketing/EXPERIMENTS.md`.
+
+### What gets measured
+
+- `track.js` (on every page) sends anonymous events to Supabase `meals_events` and to GA4.
+  Columns: `at, name, path, did (random device id), exp (active A/B buckets), ref (referring host), host (prod or staging), props`.
+- Events: `view` (with utm), `click` (every link: `to` = app, out, or the first path segment; `el` = class or data-track),
+  `swipe` (`liked`, `src` app or seo), `save_prompt`, `signup` (`status`, `src`), `open_app`, `round_start`,
+  `round_vote`, `share` (`what`), `sunday` (`on`).
+- Query with SQL on project dmwsylofgfocmbqvmgfe, always `where host = 'prod'` and excluding `did` values
+  that look like tests. GA4 and Search Console add search queries, positions and acquisition.
+- The core funnel, per page type (recipe `/s/`, collection `/recipes/`, guide pages, app `/`):
+  view -> engaged (any swipe or click) -> app (click to=app or open_app) -> signup -> returning (2+ days active).
+- North-star for partners: weekly engaged devices, and Sunday subscribers.
+
+### How a test runs
+
+1. Write the entry in EXPERIMENTS.md before building: id (E-001...), hypothesis ("If we X, then Y moves
+   because Z"), the one primary metric, guardrail metric, baseline from the last 14 days, the minimum
+   effect worth acting on, the method, and the readout date.
+2. Method by traffic:
+   - **A/B** when the pages involved get 400+ views a week: `forksExp("e001_name", ["a","b"])` in the
+     page script, render the variant, events carry `exp`. Run at least 14 days and until each arm has
+     ~200 exposures. Call it with a two-proportion z-test at 90% confidence; otherwise "no result".
+   - **Before/after** below that: ship to a page group, compare 14 days before vs after against an
+     untouched control group of similar pages (difference in differences). Treat as directional.
+   - **SEO tests**: change a page group, compare Search Console clicks and impressions 28 days before
+     vs after against a control group.
+3. One live test per page type at a time, so results don't mix.
+4. Readout in EXPERIMENTS.md: result, numbers, confidence, decision (ship, revert, iterate), and the
+   lesson in one sentence. Losers get reverted. Lessons feed the backlog order.
+5. Bigger bets first: with low traffic only large effects are detectable, so test bold changes
+   (new CTA placement, new page type, new loop), not button colors.
+
 ## The four tracks
 
 ### 1. Search (the engine)
@@ -89,9 +126,13 @@ The site already has recipe pages, collections, /what-to-make-for-dinner/, /comp
 - `LOG.md`: one entry per run, newest first, with what shipped and the numbers.
 - `PIPELINE.md`: brand prospects and deal status.
 - `APPROVALS.md`: ads and sponsored placements waiting on Andrew, with his decision recorded.
+- `EXPERIMENTS.md`: every test with hypothesis, metric, baseline, result and lesson.
 
 ## Backlog (top is next)
 
+Each build item ships as an experiment (see Test and learn). Reorder by what past readouts taught.
+
+0. Collect a 14-day baseline from `meals_events` (tracking went live Nov 19). Build runs may ship, but A/B and before/after readouts start after Dec 3.
 1. Seasonal collections: Thanksgiving leftovers, Christmas cookies, holiday appetizers, New Year's Eve
    snacks, cozy winter soups (build now for December).
 2. Ingredient pages for the top 20 ingredients across the catalog ("recipes with chicken thighs").
