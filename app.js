@@ -405,8 +405,8 @@ function onWantChange() {
 
 // ---------- "Show me anything" ----------
 // The filters read as one sentence at the top of the deck. The red words are buttons that open a small
-// picker under them. One word until both a course and a diet are picked; then each part is its own word
-// and opens only its own section.
+// picker under them. One word until both a course and a diet are picked; then each part is its own word.
+// Any of them opens the full picker.
 const MOOD_NOUN = { "": "anything", main: "mains", appetizer: "apps", dessert: "desserts", drink: "drinks" };
 const MOOD_ADJ = [["quick", "quick"], ["kid", "kid-friendly"], ["protein", "protein-packed"], ["vegetarian", "vegetarian"], ["vegan", "vegan"], ["gluten-free", "gluten-free"], ["dairy-free", "dairy-free"]];
 let moodOpen = "", moodPrev = {};
@@ -430,13 +430,12 @@ function renderMood() {
 }
 function openMood(mode) {
   moodOpen = mode;
-  $("#mpCourse").hidden = mode === "diet";
-  $("#mpDiet").hidden = mode === "course";
+  // Every tap opens the whole picker (course and diet), whichever word was tapped.
   renderTagRow($("#tags"), state.want, onWantChange);
   $("#moodScrim").hidden = false;
   $("#moodPop").hidden = false;
   renderMood();
-  ($("#moodPop").querySelector(mode === "diet" ? ".tag" : ".cat.is-active") || $("#moodDone")).focus({ preventScroll: true });
+  ($("#moodPop").querySelector(".cat.is-active") || $("#moodDone")).focus({ preventScroll: true });
 }
 function closeMood() {
   if ($("#moodPop").hidden) return;
