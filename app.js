@@ -796,7 +796,6 @@ function renderKept() {
   }).join("");
   state.freshId = null;
   warmPreviews();
-  maybeHintKeepSwipe();
   renderFeatured();
 
   const empty = $("#keptEmpty");
@@ -1032,6 +1031,7 @@ document.addEventListener("scroll", () => closeKeepMenu(), true);
     eatClick = true;
     setTimeout(() => { eatClick = false; }, 400);
     const th = threshold(d.item);
+    if (e.type === "pointerup" && Math.abs(d.dx) > th) ls.set(KEEP_HINT, KEEP_HINT_MAX);
     if (e.type === "pointerup" && d.dx < -th) {
       d.item.classList.add("snapping");
       d.item.style.transform = "translateX(-110%)";
@@ -1101,20 +1101,37 @@ function confetti(x, y, n = 90, { power = 1, aim = -Math.PI / 2, spread = 1.1, s
 }
 
 // First time on Keeps with something kept: the top row peeks right (Open) then left (Remove), once.
+// Phones: when you open Keeps, the first row slides right to show "Made this!", then left to show Remove.
+// Slow enough to read. Plays on the first few visits and stops once you've swiped a keep yourself.
+const KEEP_HINT = "forks:keepHint2", KEEP_HINT_MAX = 3;
+let keepHintAnims = [];
+function stopKeepHint() { keepHintAnims.forEach((a) => a.cancel()); keepHintAnims = []; }
 function maybeHintKeepSwipe() {
-  if (ls.get("forks:keepSwipeHint", false) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (keepHintAnims.length || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (!matchMedia("(hover: none) and (pointer: coarse)").matches) return;
+  const seen = ls.get(KEEP_HINT, 0);
+  if (seen >= KEEP_HINT_MAX) return;
   const row = $("#list .swipe-row");
   if (!row || $("#view-kept").offsetParent === null) return;
-  ls.set("forks:keepSwipeHint", true);
+  ls.set(KEEP_HINT, seen + 1);
   const item = row.querySelector(".item"), open = row.querySelector(".swipe-open"), del = row.querySelector(".swipe-del");
-  const opts = { duration: 1600, delay: 500, easing: "cubic-bezier(.45,0,.25,1)" };
-  item.animate([
-    { transform: "translateX(0)" }, { transform: "translateX(64px)", offset: 0.25 }, { transform: "translateX(64px)", offset: 0.4 },
-    { transform: "translateX(-64px)", offset: 0.65 }, { transform: "translateX(-64px)", offset: 0.8 }, { transform: "translateX(0)" },
-  ], opts);
-  open.animate([{ opacity: 0 }, { opacity: 1, offset: 0.25 }, { opacity: 1, offset: 0.4 }, { opacity: 0, offset: 0.5 }, { opacity: 0 }], opts);
-  del.animate([{ opacity: 0 }, { opacity: 0, offset: 0.5 }, { opacity: 1, offset: 0.65 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], opts);
+  const R = Math.min(170, item.offsetWidth * 0.48), L = Math.min(130, item.offsetWidth * 0.38);
+  const opts = { duration: 5200, delay: 450, easing: "linear" };
+  const ease = "cubic-bezier(.45,0,.25,1)";
+  keepHintAnims = [
+    item.animate([
+      { transform: "translateX(0)", easing: ease }, { transform: `translateX(${R}px)`, offset: 0.12 },
+      { transform: `translateX(${R}px)`, offset: 0.4, easing: ease }, { transform: "translateX(0)", offset: 0.5, easing: ease },
+      { transform: `translateX(-${L}px)`, offset: 0.6 }, { transform: `translateX(-${L}px)`, offset: 0.84, easing: ease },
+      { transform: "translateX(0)", offset: 0.94 }, { transform: "translateX(0)" },
+    ], opts),
+    open.animate([{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 1, offset: 0.42 }, { opacity: 0, offset: 0.5 }, { opacity: 0 }], opts),
+    del.animate([{ opacity: 0 }, { opacity: 0, offset: 0.5 }, { opacity: 1, offset: 0.58 }, { opacity: 1, offset: 0.86 }, { opacity: 0, offset: 0.94 }, { opacity: 0 }], opts),
+  ];
+  keepHintAnims[0].finished.then(() => { keepHintAnims = []; }, () => {});
 }
+// Touching the list cuts the demo short so it never fights a real swipe.
+$("#list").addEventListener("pointerdown", stopKeepHint, true);
 $("#emptyGo").addEventListener("click", () => {
   if (state.kept.length && state.keptWant.size) {
     state.want = new Set(state.keptWant);
