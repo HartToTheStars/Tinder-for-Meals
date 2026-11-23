@@ -135,12 +135,13 @@ Each build item ships as an experiment (see Test and learn). Reorder by what pas
 Reordered Nov 23 after the first report: raw `view` events are mostly crawlers, and search demand is
 "[publisher] + [category]".
 
-0. Fix measurement before anything is read out. (a) track.js: skip `view` when `navigator.webdriver`
-   is true or the user agent matches bot/crawler/headless patterns, and send `view` only once the page
-   has been visible for 1 second; store a `bot` flag in props instead of dropping silently if unsure.
-   (b) Smoke-test the app events (swipe, round_start, round_vote, share, sunday, signup) on staging and
-   confirm rows land in `meals_events`; none has fired on prod yet. Until (a) ships, count humans with
-   GA4. Baseline window for A/B and before/after restarts 14 days after (a) ships.
+0. Fix measurement before anything is read out. (a) DONE Nov 23 (track.js v2, E-002): bots dropped,
+   `view` after 1 second visible, weak signals flagged `props.bot = 1`. Exclude `props->>'bot'` rows in
+   reports. (b) Still open: smoke-test the app events (swipe, round_start, round_vote, share, sunday,
+   signup) in a real browser on prod or staging and confirm rows land in `meals_events`; none has fired
+   on prod yet. Automated browsers are now dropped by design, so this needs a human session or a check
+   of the first real rows. Baseline window for A/B and before/after restarts Nov 23; first clean 14 days
+   end Dec 7.
 1. Search Console striking distance: improve the publisher collections Google already shows at
    positions 8 to 25 (smitten-kitchen-appetizers, smitten-kitchen-drinks, half-baked-harvest-appetizers,
    half-baked-harvest-desserts, bon-appetit, dairy-free): better titles and H1s that match the query

@@ -2,6 +2,15 @@
 
 Newest first. One entry per run.
 
+## Nov 23, 2026: build run, bot filter in track.js (E-002)
+
+- Shipped track.js v2 to production (backlog item 0a). Automated browsers (webdriver, crawler and headless user agents) send nothing to `meals_events`; weaker signals (no languages, zero screen or window size) are sent with `props.bot = 1`. `view` now fires only after 1 second of continuous visibility, so prerendered and background tabs are not counted. GA4 calls are unchanged.
+- Experiment: E-002, before/after against GA4 users. Baseline: 1,496 prod views from 1,491 devices in 14 days, 1,481 of them one view with no referrer and no other event; GA4 about 7 users a week. Readout Dec 1.
+- Bumped `track.js?v=1` to `v=2` on all 886 pages and in tools/seo/build.js. I did not commit a full `node tools/seo/build.js` rebuild: it pulled about 190 new recipe pages and reshuffled collection cards from the live catalog, which would mix catalog changes into this measurement test. The next SEO build run will pick those up.
+- Verified with a Node harness that runs track.js against simulated browsers (human, webdriver, Googlebot, HeadlessChrome, DuckDuckGo browser, no languages, hidden tab, tab left under 1 second, tab shown twice): each case sends or drops as intended. The built-in browser check was not possible because starting the local preview server was declined in this unattended run.
+- Live: https://forkslist.com/ , https://forkslist.com/recipes/ , https://forkslist.com/compare/ and a sample /s/ page all serve track.js?v=2, and https://forkslist.com/track.js?v=2 has the new code. No prod rows arrived in the 30 minutes after publishing (expected with near-zero human traffic); the insert code path is unchanged.
+- Left: item 0b, a real-browser smoke test of app events (swipe, round_start, round_vote, share, sunday, signup). Automated browsers are now dropped by design, so this needs a human session or a look at the first real rows. Reports should exclude rows where `props ? 'bot'`. Clean 14-day baseline for E-001 and later tests ends Dec 7.
+
 ## Nov 23, 2026: weekly report (first week of tracking)
 
 Window: this week = Nov 16 to Nov 23 (rolling 7 days). Last week had no event tracking (track.js went live Nov 19), so funnel week-over-week is n/a. Database counts compare to the 7 days before.
