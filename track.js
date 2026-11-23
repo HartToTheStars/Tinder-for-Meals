@@ -6,6 +6,10 @@
   if (window.forksTrack) return;
   var SB = "https://dmwsylofgfocmbqvmgfe.supabase.co", KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtd3N5bG9mZ2ZvY21icXZtZ2ZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMDg1NTMsImV4cCI6MjEwMDU4NDU1M30.Jxsz_HK6jE4y2T36RJMtRWpaXlk0ugyEL2b7CXTrgE8";
   var live = /(^|[.])forkslist[.]com$/.test(location.hostname), staging = /here[.]now$/.test(location.hostname);
+  // Automated browsers send nothing to Supabase. Weaker signals are kept but flagged with props.bot = 1.
+  var ua = navigator.userAgent || "";
+  var bot = !!navigator.webdriver || /bot|crawl|spider|slurp|headless|lighthouse|pagespeed|preview|facebookexternalhit|embedly|bingpreview|phantomjs|puppeteer|playwright|selenium|python|curl|wget|httpclient|java[/]|go-http|axios|node-fetch|scrapy|ahrefs|semrush|mj12|dotbot|petalbot|yandex|baidu|duckduckbot|applebot|google-inspectiontool|chrome-lighthouse/i.test(ua);
+  var maybeBot = !bot && ((navigator.languages && navigator.languages.length === 0) || !screen.width || !window.outerWidth);
   var get = function (k, d) { try { var v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
   var set = function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
   var did = get("forks:did", null);
@@ -24,7 +28,8 @@
   window.forksTrack = function (name, props) {
     props = props || {};
     try { if (window.gtag) window.gtag("event", name, Object.assign({ exp: expStr() || undefined }, props)); } catch (e) {}
-    if (!live && !staging) return;
+    if ((!live && !staging) || bot) return;
+    if (maybeBot) props = Object.assign({ bot: 1 }, props);
     try {
       fetch(SB + "/rest/v1/meals_events", {
         method: "POST", keepalive: true,
@@ -45,7 +50,14 @@
     window.forksTrack("click", p);
   }, true);
 
-  // Pageview after the page's own scripts have had a chance to call forksExp.
-  var view = function () { window.forksTrack("view", utm); };
-  if (document.readyState === "complete") setTimeout(view, 0); else window.addEventListener("load", function () { setTimeout(view, 0); });
+  // Pageview once the page has been visible for 1 second without a break, after load so the page's
+  // own scripts have called forksExp. Prerendered and background tabs that are never seen send nothing.
+  var sent = false, timer = null;
+  var arm = function () {
+    clearTimeout(timer); timer = null;
+    if (sent || document.visibilityState !== "visible") return;
+    timer = setTimeout(function () { if (!sent && document.visibilityState === "visible") { sent = true; window.forksTrack("view", utm); } }, 1000);
+  };
+  var start = function () { arm(); document.addEventListener("visibilitychange", arm); };
+  if (document.readyState === "complete") start(); else window.addEventListener("load", start);
 })();

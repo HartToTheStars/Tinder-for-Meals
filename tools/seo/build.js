@@ -20,7 +20,7 @@ const TAG_ICON = [["kid", "baby", "Kid friendly"], ["quick", "timer", "Under 30 
   ["vegetarian", "carrot", "Vegetarian"], ["vegan", "sprout", "Vegan"], ["gluten-free", "wheat-off", "Gluten-free"], ["dairy-free", "milk-off", "Dairy-free"]];
 const tagIcons = (tags) => TAG_ICON.filter(([k]) => (tags || []).includes(k)).slice(0, 3).map(([, i, l]) => [l, ICONS[i]]);
 const SWJS = "/swipe.js?v=3";
-const TRACKJS = "/track.js?v=1";
+const TRACKJS = "/track.js?v=2";
 const MIN = 6; // a collection needs at least this many recipes to get a page
 
 const JUNK = /(favorite things|weekend reads|gift guide|holiday guide|giveaway|link love|meal plan|^\d+:)/i;
