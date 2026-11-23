@@ -132,16 +132,42 @@ The site already has recipe pages, collections, /what-to-make-for-dinner/, /comp
 ## Backlog (top is next)
 
 Each build item ships as an experiment (see Test and learn). Reorder by what past readouts taught.
+Reordered Nov 23 after the first report: raw `view` events are mostly crawlers, and search demand is
+"[publisher] + [category]".
 
-0. Collect a 14-day baseline from `meals_events` (tracking went live Nov 19). Build runs may ship, but A/B and before/after readouts start after Dec 3.
-1. Seasonal collections: Thanksgiving leftovers, Christmas cookies, holiday appetizers, New Year's Eve
-   snacks, cozy winter soups (build now for December).
-2. Ingredient pages for the top 20 ingredients across the catalog ("recipes with chicken thighs").
-3. "Start a round with these" link on every collection and recipe page, into Swipe Together.
-4. Search Console review: list striking-distance queries in LOG.md, improve those pages.
-5. Sunday email signup moments in the app (after a match, after 10 keeps).
-6. /partners/ media kit page with live numbers (noindex until the outreach gate).
-7. Directory submissions: Product Hunt prep (draft only, launch needs Andrew), AlternativeTo, SaaSHub,
+0. Fix measurement before anything is read out. (a) track.js: skip `view` when `navigator.webdriver`
+   is true or the user agent matches bot/crawler/headless patterns, and send `view` only once the page
+   has been visible for 1 second; store a `bot` flag in props instead of dropping silently if unsure.
+   (b) Smoke-test the app events (swipe, round_start, round_vote, share, sunday, signup) on staging and
+   confirm rows land in `meals_events`; none has fired on prod yet. Until (a) ships, count humans with
+   GA4. Baseline window for A/B and before/after restarts 14 days after (a) ships.
+1. Search Console striking distance: improve the publisher collections Google already shows at
+   positions 8 to 25 (smitten-kitchen-appetizers, smitten-kitchen-drinks, half-baked-harvest-appetizers,
+   half-baked-harvest-desserts, bon-appetit, dairy-free): better titles and H1s that match the query
+   wording ("Smitten Kitchen appetizers"), intro copy, more cards, FAQ, internal links. SEO test vs an
+   untouched set of publisher collections.
+2. More publisher-by-category collections (Smitten Kitchen soups, Half Baked Harvest pasta, Bon Appetit
+   chicken, and so on) where the catalog has 12+ recipes. Hypothesis H-2 below.
+3. Seasonal collections: Christmas cookies, holiday appetizers, New Year's Eve snacks, cozy winter
+   soups. Thanksgiving is too late to rank; skip it.
+4. Ingredient pages for the top 20 ingredients across the catalog ("recipes with chicken thighs").
+5. "Start a round with these" link on every collection and recipe page, into Swipe Together.
+6. /compare/ variants for "[publisher] alternatives" and "apps like [publisher]" (H-3).
+7. Sunday email signup moments in the app (after a match, after 10 keeps).
+8. /partners/ media kit page with live numbers (noindex until the outreach gate).
+9. Directory submissions: Product Hunt prep (draft only, launch needs Andrew), AlternativeTo, SaaSHub,
    recipe-app roundups.
-8. Monthly data post: most-kept dinners of the month.
-9. Prospect list: 40 brands with a named contact path each.
+10. Monthly data post: most-kept dinners of the month.
+11. Prospect list: 40 brands with a named contact path each.
+
+### Hypotheses from the data
+
+- H-1 (Nov 23): Search visitors to recipe pages click out to the publisher and do not swipe (2 of 2
+  engaged Google visitors clicked out, 0 swiped). If the deck is shown above the "Get the recipe"
+  button instead of below it, swipe rate on /s/ rises. Test as E-001's variant once human /s/ traffic
+  allows; before then, before/after with GA4 counts.
+- H-2 (Nov 23): Most impressions are "[publisher] + [category]" queries. If we add publisher-by-category
+  collections, impressions grow faster per page than for generic collections. SEO before/after vs
+  generic collections built in the same weeks.
+- H-3 (Nov 23): "bon appetit alternatives" already ranks at 6.7 with no page aimed at it. If /compare/
+  gets per-publisher alternatives pages, they reach the top 5 for those queries.
