@@ -2,6 +2,25 @@
 
 Newest first. One entry per run.
 
+## Nov 26, 2026: partners and distribution run
+
+- Prospects: added 10 brands to PIPELINE.md, each with the catalog recipes that use the product and a contact path: Diamond Crystal (153 recipes name it), Graza, Brightland, King Arthur Baking, Burlap & Barrel, Rancho Gordo, Guittard, Nielsen-Massey, Fly By Jing, Made In. Verified role addresses on the brand's own site for Burlap & Barrel, Rancho Gordo, Guittard and King Arthur (affiliates). Named leads come from third-party pages and are marked unverified. Skipped Kerrygold: no contact path found.
+- Placement attribution: no utm-tagged placements exist yet. Clean prod traffic since the Nov 23 bot filter: 11 views from 10 devices, 5 swipes from 1 device, 4 clicks from 3 devices. The only referrer in 14 days is google.com (21 events, 12 devices).
+- Distribution: no submissions this week. Checked three free directories and none could be done within the rules:
+  - Launching Next (launchingnext.com/submit): free form, no account, but it has a "What is 2+3?" bot check, which I do not complete. Andrew can submit it in about 3 minutes. Tagged URL: https://forkslist.com/?utm_source=launchingnext&utm_medium=directory&utm_campaign=dir_launch_nov26
+  - Fazier (fazier.com/submit): free tier needs an account and a backlink to Fazier on our homepage. Tagged URL if Andrew wants it: https://forkslist.com/?utm_source=fazier&utm_medium=directory&utm_campaign=dir_launch_nov26
+  - Startup Stash: paid listings only. Skip.
+  - Suggested copy for both: name "forks"; headline "Swipe to pick dinner, alone or together"; tags: recipes, cooking, meal planning, dinner ideas, food, couples. Description: "forks is a free recipe swiping app. Swipe through 1,200+ dinner ideas from Smitten Kitchen, Bon Appetit and Half Baked Harvest, keep the ones you want, and use Swipe Together to pick dinner with someone else. No account needed to start."
+  - Lesson: general startup directories mostly gate on accounts, payments or bot checks. Next week, look at recipe-app roundups and food blogs that take tips by form instead.
+- Outreach: gate not met (about 70 pageviews a month against 5,000; 4 Sunday subscribers against 300). No Gmail drafts. Wrote marketing/pitches/sponsored-deck-pitch.md: a pitch template in Andrew's voice with two subject-line variants, the current audience numbers to refresh, and a worked Diamond Crystal example.
+- Comps: none. No prospect is at `talking`.
+
+### Needs Andrew
+
+- Optional: submit forks to Launching Next by hand (bot check) with the tagged URL and copy above.
+- Optional: decide whether to join Fazier (account plus a homepage backlink) and King Arthur's Awin affiliate program (account and terms).
+- APPROVALS.md: nothing open. Gmail drafts: none.
+
 ## Nov 23, 2026: build run, bot filter in track.js (E-002)
 
 - Shipped track.js v2 to production (backlog item 0a). Automated browsers (webdriver, crawler and headless user agents) send nothing to `meals_events`; weaker signals (no languages, zero screen or window size) are sent with `props.bot = 1`. `view` now fires only after 1 second of continuous visibility, so prerendered and background tabs are not counted. GA4 calls are unchanged.
