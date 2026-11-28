@@ -132,43 +132,63 @@ The site already has recipe pages, collections, /what-to-make-for-dinner/, /comp
 ## Backlog (top is next)
 
 Each build item ships as an experiment (see Test and learn). Reorder by what past readouts taught.
-Reordered Nov 23 after the first report: raw `view` events are mostly crawlers, and search demand is
-"[publisher] + [category]".
+Reordered Nov 27 after the second report: Search Console impressions grew about 6x (225 to 1,320 in
+28 days), driven by Thanksgiving recipes and the Bon Appetit collection, then traffic fell to zero
+after Nov 24. Seasonal pages and click-through on pages that already rank now matter most.
 
-0. Fix measurement before anything is read out. (a) DONE Nov 23 (track.js v2, E-002): bots dropped,
-   `view` after 1 second visible, weak signals flagged `props.bot = 1`. Exclude `props->>'bot'` rows in
-   reports. (b) Still open: smoke-test the app events (swipe, round_start, round_vote, share, sunday,
-   signup) in a real browser on prod or staging and confirm rows land in `meals_events`; none has fired
-   on prod yet. Automated browsers are now dropped by design, so this needs a human session or a check
-   of the first real rows. Baseline window for A/B and before/after restarts Nov 23; first clean 14 days
-   end Dec 7.
-1. Search Console striking distance: improve the publisher collections Google already shows at
-   positions 8 to 25 (smitten-kitchen-appetizers, smitten-kitchen-drinks, half-baked-harvest-appetizers,
-   half-baked-harvest-desserts, bon-appetit, dairy-free): better titles and H1s that match the query
-   wording ("Smitten Kitchen appetizers"), intro copy, more cards, FAQ, internal links. SEO test vs an
-   untouched set of publisher collections.
-2. More publisher-by-category collections (Smitten Kitchen soups, Half Baked Harvest pasta, Bon Appetit
-   chicken, and so on) where the catalog has 12+ recipes. Hypothesis H-2 below.
-3. Seasonal collections: Christmas cookies, holiday appetizers, New Year's Eve snacks, cozy winter
-   soups. Thanksgiving is too late to rank; skip it.
-4. Ingredient pages for the top 20 ingredients across the catalog ("recipes with chicken thighs").
-5. "Start a round with these" link on every collection and recipe page, into Swipe Together.
-6. /compare/ variants for "[publisher] alternatives" and "apps like [publisher]" (H-3).
-7. Sunday email signup moments in the app (after a match, after 10 keeps).
-8. /partners/ media kit page with live numbers (noindex until the outreach gate).
-9. Directory submissions: Product Hunt prep (draft only, launch needs Andrew), AlternativeTo, SaaSHub,
-   recipe-app roundups.
-10. Monthly data post: most-kept dinners of the month.
-11. Prospect list: 40 brands with a named contact path each.
+0. Measurement. (a) DONE Nov 23 (track.js v2, E-002). Exclude `props ? 'bot'` rows and device
+   68f5a922-ad2a-4142-923d-47928709cb58 (the Nov 27 report check) in reports. (b) Partly done: `view`
+   confirmed from a real Chrome session Nov 27; `click` and `swipe` have real prod rows. Still open:
+   signup, round_start, round_vote, share, sunday. Needs a human session or the first real rows.
+   First clean 14-day baseline ends Dec 7.
+1. Christmas and winter seasonal collections, now: Christmas cookies, holiday appetizers, New Year's Eve
+   snacks, cozy winter soups. Christmas is 4 weeks out, inside the 3 to 5 week window. Thanksgiving
+   recipe pages ranked 6 to 10 within days of the sitemap read, so seasonal pages are the fastest
+   proven source of clicks. Link them from / and the matching publisher collections.
+2. Search Console striking distance, starting with click-through: /recipes/bon-appetit/ had 269
+   impressions for "bonappetit recipes" at position 8.7 and no clicks. Rewrite its title and meta
+   description to offer what bonappetit.com does not ("swipe 189 Bon Appetit dinners, keep the ones you
+   want"), then the other collections Google shows at 8 to 25 (smitten-kitchen-appetizers,
+   smitten-kitchen-drinks, half-baked-harvest-appetizers, half-baked-harvest-desserts, dairy-free):
+   titles and H1s in the query wording, intro copy, more cards, FAQ, internal links. SEO test vs an
+   untouched set of publisher collections (H-4).
+3. Recipe-page snippets for the /s/ pages at positions 8 to 11 (broccoli slaw, pasta e ceci, maple bourbon
+   chicken, bourbon caramel apple pie, honey mustard chicken, candied bacon pinwheels): titles in the
+   "[publisher] [dish]" wording people search, since that is the pattern of every click so far.
+4. More publisher-by-category collections (Smitten Kitchen soups, Half Baked Harvest pasta, Bon Appetit
+   chicken, and so on) where the catalog has 12+ recipes (H-2).
+5. Diet collections Google already associates with forks but where no page targets the query:
+   dairy-free dinners, dairy-free appetizers, gluten-free vegetarian dinners (H-5).
+6. Ingredient pages for the top 20 ingredients across the catalog ("recipes with chicken thighs").
+7. Move the deck above "Get the recipe" on /s/ pages, or add a "swipe more like this" step before the
+   click-out (H-1). 6 of 6 engaged search visitors this week clicked out and none swiped.
+8. "Start a round with these" link on every collection and recipe page, into Swipe Together.
+9. /compare/ variants for "[publisher] alternatives" and "apps like [publisher]" (H-3).
+10. Sunday email signup moments in the app (after a match, after 10 keeps).
+11. /partners/ media kit page with live numbers (noindex until the outreach gate).
+12. Directory submissions: Product Hunt prep (draft only, launch needs Andrew), AlternativeTo, SaaSHub,
+    recipe-app roundups and food blogs that take tips by form.
+13. Monthly data post: most-kept dinners of the month.
+14. Prospect list: 40 brands with a named contact path each (10 so far).
 
 ### Hypotheses from the data
 
-- H-1 (Nov 23): Search visitors to recipe pages click out to the publisher and do not swipe (2 of 2
-  engaged Google visitors clicked out, 0 swiped). If the deck is shown above the "Get the recipe"
-  button instead of below it, swipe rate on /s/ rises. Test as E-001's variant once human /s/ traffic
-  allows; before then, before/after with GA4 counts.
+- H-1 (Nov 23, held Nov 27): Search visitors to recipe pages click out to the publisher and do not swipe
+  (2 of 2 engaged Google visitors on Nov 23, 6 of 6 on Nov 27). If the deck is shown above the "Get the
+  recipe" button instead of below it, swipe rate on /s/ rises. Test as E-001's variant once human /s/
+  traffic allows; before then, before/after with GA4 counts.
 - H-2 (Nov 23): Most impressions are "[publisher] + [category]" queries. If we add publisher-by-category
   collections, impressions grow faster per page than for generic collections. SEO before/after vs
   generic collections built in the same weeks.
 - H-3 (Nov 23): "bon appetit alternatives" already ranks at 6.7 with no page aimed at it. If /compare/
   gets per-publisher alternatives pages, they reach the top 5 for those queries.
+- H-4 (Nov 27): Collections at position 8 to 10 get impressions but no clicks because the snippet reads
+  like a copy of the publisher's own site. If titles and descriptions lead with what forks adds (swipe,
+  keep, decide together), CTR on those collections rises from 0% to at least 2% at the same position.
+  SEO before/after, 28 days, against untouched collections.
+- H-5 (Nov 27): Google already shows forks at positions 53 to 98 for dairy-free dinner and gluten-free
+  vegetarian queries from pages that do not target them. If we build collections aimed at those exact
+  queries, they reach positions under 20 within 28 days.
+- H-6 (Nov 27): Seasonal recipe searches drive most clicks and stop right after the holiday. If seasonal
+  collections are published 3 to 5 weeks ahead and linked from the home page, Christmas week clicks
+  exceed Thanksgiving week's 13.

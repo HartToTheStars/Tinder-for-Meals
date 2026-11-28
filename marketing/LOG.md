@@ -2,6 +2,90 @@
 
 Newest first. One entry per run.
 
+## Nov 27, 2026: weekly report
+
+Window: this week = Nov 20 to Nov 27 (rolling 7 days, prod, test devices and `props.bot` rows excluded). Last week = Nov 13 to Nov 20. The bot filter shipped Nov 23 at about 18:00 UTC, so raw `view` counts before then are still mostly crawlers. Engagement events (swipe, click) were never bot traffic and compare cleanly.
+
+### Funnel, prod, distinct devices
+
+| Page type | Views (raw) | Views after the filter (Nov 23 to 27) | From google.com | Engaged | To app | Signups | Rounds | Votes | Shares | Sunday | Outbound | WoW engaged |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| /s/ recipe | 333 (last week 677) | 6 | 12 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 6 | 0 to 6 |
+| /recipes/ collection | 10 (104) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 to 0 |
+| Guide pages | 8 (4) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 to 0 |
+| / app | 246 (122) | 4 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 to 1 |
+
+- Returning devices (2+ days): 0 this week, 0 last week.
+- All 6 engaged recipe-page devices clicked out to the publisher (Bon Appetit, Smitten Kitchen). None swiped. The one app swipe session was 5 swipes, all left, on Nov 24.
+- Referrers: www.google.com (12 devices). No other referrer, no utm sources.
+- No events at all since Nov 24 21:12 UTC. I checked this is real and not broken tracking: the site and track.js?v=2 serve normally, nothing was deployed since Nov 23, Supabase API logs for the last 24 hours show only Googlebot and Reflectionbot calling the meals RPCs, GA4 also shows 0 users for Nov 25 to 27, and a recipe page loaded in Chrome sent its `view` insert (201) and its GA4 hits. Note: that check created one prod `view` row from device 68f5a922-ad2a-4142-923d-47928709cb58 on Nov 27. Exclude it.
+
+### Database (meals only)
+
+| Metric | This week | Last week | Total |
+| --- | --- | --- | --- |
+| New users (auth.users) | 0 | 4 | 4 |
+| meals_user_swipes | 0 | 222 | 222 |
+| meals_together rounds | 0 | 11 | 11 |
+| Sunday pick on | | | 4 (unchanged) |
+
+No signed-in app activity since Nov 19.
+
+### GA4 (property forks)
+
+- Last 7 days: about 29 active users (last week about 8), 29 sessions: 14 direct, 13 organic search, 1 referral (dataindex.pro, likely spam), 1 unassigned.
+- Last 28 days: 74 views, 36 users. Top pages: / (35 views, 22 users), one /s/ recipe (10), Almost-Classic Sweet Potato Casserole (6), /swipe-together/ (4), /recipes/ and /recipes/high-protein/ (2 each).
+- Nov 25 to 27: 0 users.
+
+### Search Console (https://forkslist.com/, 28 days, data through Nov 25)
+
+13 clicks (last report 4), 1,320 impressions (last report 225), 1.0% CTR, average position 13.5. 159 queries, 235 pages with impressions. Daily impressions: Nov 21 180, Nov 22 312, Nov 23 392, Nov 24 385, Nov 25 6 (the last day is usually partial, but this drop matches the zero traffic since Nov 24; check again next week).
+
+Clicks came from recipe pages that rank 5 to 12 for "[publisher] + dish" queries: Almost-Classic Sweet Potato Casserole (5 clicks, 68 impressions, position 6.3) and seven other /s/ pages with 1 or 2 clicks each. Thanksgiving dishes drove most of it.
+
+Striking-distance queries (position 8 to 30) and the page to improve:
+
+| Query | Impr. | Pos. | Page |
+| --- | --- | --- | --- |
+| bonappetit recipes | 269 | 8.7 | /recipes/bon-appetit/ (276 impr., pos. 8.9, 0 clicks; was 23.8 last week) |
+| smitten kitchen appetizers | 14 | 9.1 | /recipes/smitten-kitchen-appetizers/ |
+| smitten kitchen sidecar | 9 | 9.3 | /recipes/smitten-kitchen-drinks/ (and "smitten kitchen cocktails", 6 at 6.0) |
+| smitten kitchen broccoli slaw; smitten kitchen pasta e ceci | 9; 8 | 9.8; 8.5 | their /s/ pages |
+| maple bourbon chicken with brussels sprouts | 8 | 9.8 | its /s/ page |
+| bourbon caramel apple pie bon appetit (2 variants) | 10 | 9.3 to 10.0 | its /s/ page |
+| half baked harvest apps; hbh appetizers; half baked harvest appetizers | 5; 4; 5 | 8.6; 9.0; 14.4 | /recipes/half-baked-harvest-appetizers/ |
+| honey mustard chicken half baked harvest | 5 | 10.6 | its /s/ page |
+| candied bacon pinwheels | 5 | 10.8 | its /s/ page |
+| half baked harvest desserts; best half baked harvest desserts | 4; 2 | 17.2; 25.0 | /recipes/half-baked-harvest-desserts/ |
+| dairy free recipes for short people, military | 7 | 9 to 10.5 | /recipes/dairy-free/ |
+
+Demand we do not target yet: "dairy free appetizers" (14 impr., position 73), "dairy free dinner recipes" and 10 similar dairy-free dinner queries (positions 67 to 98), and about 12 "gluten free vegetarian meals" variants (positions 53 to 96).
+
+### Experiments
+
+No readouts due. E-002 (bot filter) reads out Dec 1. Early look, not a readout: first-party prod `view` devices fell from about 1,490 in the 14 days before to 11 in the 4 days after the filter, while GA4 kept counting humans, so the ratio is heading toward the target. The Nov 25 to 27 traffic gap will make the 7-day post window thin. E-001 stays planned (human /s/ views are about 10 a week, far under 400).
+
+Smoke test (backlog 0b): `view` now confirmed from a real Chrome session, `click` (to=out) and `swipe` (src app) have real prod rows. Still unverified: signup, round_start, round_vote, share, sunday.
+
+### Lessons
+
+- Search impressions grew about 6x in a week. Thanksgiving recipes and the Bon Appetit collection did it; the site is now indexed well enough that seasonal pages can pay off.
+- Recipe pages win clicks at position 6 to 10. The Bon Appetit collection got 269 impressions at 8.7 and no clicks, so its title and snippet do not win the click against bonappetit.com itself.
+- Search visitors still click out and do not swipe (6 of 6 engaged recipe-page devices). H-1 holds.
+- Traffic stopped completely after Nov 24. The cause is not confirmed; the likeliest one is that Thanksgiving recipe searches ended. Next week's Search Console data will show whether impressions recovered.
+
+### Outreach gate
+
+Not met. GA4: 74 pageviews in 28 days against 5,000 a month. Sunday subscribers: 4 against 300.
+
+### Needs Andrew
+
+- APPROVALS.md: nothing open.
+- Gmail pitch drafts: none (pre-gate).
+- Deal decisions: none.
+- Still optional from Nov 26: submit forks to Launching Next by hand; decide on Fazier and King Arthur's Awin affiliate program.
+- Nothing new since last week.
+
 ## Nov 26, 2026: partners and distribution run
 
 - Prospects: added 10 brands to PIPELINE.md, each with the catalog recipes that use the product and a contact path: Diamond Crystal (153 recipes name it), Graza, Brightland, King Arthur Baking, Burlap & Barrel, Rancho Gordo, Guittard, Nielsen-Massey, Fly By Jing, Made In. Verified role addresses on the brand's own site for Burlap & Barrel, Rancho Gordo, Guittard and King Arthur (affiliates). Named leads come from third-party pages and are marked unverified. Skipped Kerrygold: no contact path found.
